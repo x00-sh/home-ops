@@ -49,29 +49,29 @@ spec:
     storageClasses:
       synology-iscsi-delete:
         parameters:
-          dsm: "nas.home.x00.sh"
+          dsm: 10.0.0.20
           fstype: ext4
-          location: '/volume2'
+          location: /volume2
           protocol: iscsi
       synology-iscsi-retain:
         reclaimPolicy: Retain
         parameters:
-          dsm: "nas.home.x00.sh"
+          dsm: 10.0.0.20
           fstype: ext4
-          location: '/volume2'
+          location: /volume2
           protocol: iscsi
         isDefault: true
       media-delete:
         parameters:
-          dsm: "nas.home.x00.sh"
+          dsm: 10.0.0.20
           fstype: nfs
-          location: '/volume1/media'
+          location: /volume1/media
       media-reclaim:
         reclaimPolicy: Retain
         parameters:
-          dsm: "nas.home.x00.sh"
+          dsm: 10.0.0.20
           fstype: nfs
-          location: '/volume1/media'
+          location: /volume1/media
     volumeSnapshotClasses:
       synology-iscsi-delete:
         deletionPolicy: Delete
