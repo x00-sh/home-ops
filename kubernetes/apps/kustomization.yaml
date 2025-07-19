@@ -6,10 +6,10 @@ namespace: flux-system
 components:
   - ../components/common
 resources:
-  - ./cert-manager/kustomization.yaml
-  - ./default/kustomization.yaml
-  - ./external-secrets/kustomization.yaml
-  - ./flux-system/kustomization.yaml
-  - ./kube-system/kustomization.yaml
-  - ./network/kustomization.yaml
-  - ./security/kustomization.yaml
+  - ./cert-manager
+  - ./default
+  - ./external-secrets
+  - ./flux-system
+  - ./kube-system
+  - ./network
+  - ./security
