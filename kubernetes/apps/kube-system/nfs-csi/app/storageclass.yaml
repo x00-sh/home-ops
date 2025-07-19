@@ -14,6 +14,7 @@ mountOptions:
   - nfsvers=3
   - hard
   - intr
+  - nolock
 reclaimPolicy: Retain
 volumeBindingMode: Immediate
 ---
@@ -30,6 +31,7 @@ mountOptions:
   - nfsvers=3
   - hard
   - intr
+  - nolock
   - ro
 reclaimPolicy: Retain
 volumeBindingMode: Immediate
@@ -47,5 +49,6 @@ mountOptions:
   - nfsvers=3
   - hard
   - intr
+  - nolock
 reclaimPolicy: Retain
 volumeBindingMode: Immediate
