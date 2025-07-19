@@ -7,6 +7,7 @@ Production-ready Home Assistant deployment with 1Password secrets integration.
 Create an item named `home-assistant` in your 1Password "kubernetes" vault with the following fields:
 
 ### Required Fields
+- `domain`: Your cluster domain (e.g., "x00.sh")
 - `api_token`: Long-lived access token for Home Assistant API
 - `secret_key`: Secret key for Home Assistant internal encryption (generate with `openssl rand -hex 32`)
 
@@ -17,7 +18,7 @@ Create an item named `home-assistant` in your 1Password "kubernetes" vault with 
 
 ## Features
 
-- **External access**: Available at https://home-assistant.x00.sh
+- **External access**: Available at https://home-assistant.${SECRET_DOMAIN}
 - **Secure secrets**: All sensitive data managed via 1Password
 - **Optimized storage**: Separate cache and memory-backed temporary storage
 - **Non-root security**: Runs with hardened security context

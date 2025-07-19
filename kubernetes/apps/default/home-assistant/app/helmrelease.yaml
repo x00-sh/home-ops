@@ -83,7 +83,7 @@ spec:
             port: *port
     route:
       app:
-        hostnames: ["home-assistant.x00.sh"]
+        hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
         parentRefs:
           - name: external
             namespace: kube-system
