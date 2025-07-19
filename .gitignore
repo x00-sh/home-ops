@@ -19,3 +19,6 @@ talosconfig
 .venv/
 .DS_Store
 Thumbs.db
+# 1Password credentials
+1password-credentials.json
+temp-secret.yaml
