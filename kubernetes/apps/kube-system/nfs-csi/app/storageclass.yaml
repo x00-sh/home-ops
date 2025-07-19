@@ -1,0 +1,51 @@
+---
+# Read-Write NFS Storage Class (for app data)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-rw
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "nas.home.x00.sh"
+  share: "/volume1/kubernetes"  # Dedicated share for app data
+mountOptions:
+  - nfsvers=3
+  - hard
+  - intr
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+---
+# Read-Only Media Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-media-ro
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "nas.home.x00.sh"
+  share: "/volume1/media"
+mountOptions:
+  - nfsvers=3
+  - hard
+  - intr
+  - ro
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+---
+# Read-Write Media Storage Class (for media management apps)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-media-rw
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: "nas.home.x00.sh"
+  share: "/volume1/media"
+mountOptions:
+  - nfsvers=3
+  - hard
+  - intr
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
