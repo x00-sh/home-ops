@@ -23,7 +23,7 @@ spec:
       retries: 3
   values:
     connect:
-      credentials_base64: ""
+      credentials_base64: "${ONEPASSWORD_CREDENTIALS}"
       resources:
         requests:
           cpu: 5m
@@ -33,7 +33,7 @@ spec:
     operator:
       create: true
       token:
-        value: ""
+        value: "${ONEPASSWORD_TOKEN}"
       resources:
         requests:
           cpu: 5m

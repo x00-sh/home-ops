@@ -24,3 +24,8 @@ spec:
   interval: 1h
   retryInterval: 1m
   timeout: 5m
+  postBuild:
+    substituteFrom:
+      - kind: Secret
+        name: onepassword-secret
+        optional: false
