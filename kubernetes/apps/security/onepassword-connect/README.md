@@ -1,29 +1,28 @@
 # 1Password Connect Setup
 
-This directory contains the configuration for 1Password Connect, which enables secure integration between your Kubernetes cluster and 1Password for secrets management.
+This directory contains the configuration for 1Password Connect, which enables secure integration between your Kubernetes cluster and 1Password for secrets management using Service Account tokens.
 
 ## Prerequisites
 
 1. A 1Password account with a team or business plan
-2. Access to create a 1Password Connect server
-3. The `op` CLI tool installed and configured
+2. Access to create a 1Password Service Account
+3. The `op` CLI tool installed and configured (optional)
 
 ## Setup Steps
 
-### 1. Create 1Password Connect Server
+### 1. Create 1Password Service Account
 
 1. Log into your 1Password account
-2. Go to Integrations → 1Password Connect
-3. Create a new Connect server
-4. Download the `1password-credentials.json` file
-5. Generate an access token for the Connect server
+2. Go to **Integrations** → **1Password Connect**
+3. Create a new integration
+4. Copy the JWT token that's generated
 
-### 2. Encrypt Credentials with SOPS
+### 2. Encrypt Token with SOPS
 
 Replace the placeholder values in `secret.sops.yaml`:
 
 ```bash
-# Create a temporary file with your credentials
+# Create a temporary file with your token
 cat > temp-secret.yaml <<EOF
 ---
 apiVersion: v1
@@ -32,9 +31,7 @@ metadata:
   name: onepassword-secret
 type: Opaque
 stringData:
-  token: "YOUR_CONNECT_TOKEN_HERE"
-  credentials: |
-$(cat 1password-credentials.json | sed 's/^/    /')
+  token: "YOUR_JWT_TOKEN_HERE"
 EOF
 
 # Encrypt with SOPS
@@ -44,7 +41,7 @@ sops --encrypt --in-place temp-secret.yaml
 cp temp-secret.yaml secret.sops.yaml
 
 # Clean up
-rm temp-secret.yaml 1password-credentials.json
+rm temp-secret.yaml
 ```
 
 ### 3. Create Vault and Items
