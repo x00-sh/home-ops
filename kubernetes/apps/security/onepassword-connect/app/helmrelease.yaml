@@ -1,0 +1,43 @@
+---
+# Credentials come from secret.sops.yaml, never from chart values.
+#
+# Deliberately NOT setting connect.credentials or connect.credentials_base64:
+# the 2025 attempt committed literal "test-credentials" / "test-token"
+# placeholders to make CI pass, and shipped them to the cluster. Leaving both
+# unset makes the chart skip its own Secret template and mount the one this
+# app supplies via connect.credentialsName.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: onepassword-connect
+spec:
+  chart:
+    spec:
+      chart: connect
+      version: 2.4.1
+      sourceRef:
+        kind: HelmRepository
+        name: onepassword
+  interval: 1h
+  values:
+    connect:
+      create: true
+      applicationName: onepassword-connect
+      credentialsName: onepassword-connect-credentials
+      credentialsKey: 1password-credentials.json
+      api:
+        resources:
+          requests:
+            cpu: 10m
+          limits:
+            memory: 128Mi
+      sync:
+        resources:
+          requests:
+            cpu: 10m
+          limits:
+            memory: 128Mi
+    # External Secrets talks to Connect directly; the 1Password Kubernetes
+    # operator would be a second, redundant secret-syncing mechanism.
+    operator:
+      create: false
