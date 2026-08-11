@@ -1,7 +1,4 @@
 ---
-# No HTTPRoute yet — same reason as Jellyfin. request.${SECRET_DOMAIN} is still
-# served by the docker tunnel and must not be repointed until cutover.
-#
 # Not behind forward auth: Seerr authenticates its users against Jellyfin
 # accounts, so a second login in front of it would mean every family member
 # also needs an Authentik account.
@@ -40,6 +37,18 @@ spec:
         ports:
           http:
             port: 5055
+    route:
+      app:
+        hostnames:
+          - "request.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 5055
     configMaps:
       branding:
         enabled: true

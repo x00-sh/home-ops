@@ -1,9 +1,4 @@
 ---
-# No HTTPRoute yet, on purpose. external-dns runs policy=sync, so publishing a
-# route for stream.${SECRET_DOMAIN} would immediately repoint that name away
-# from the still-serving docker tunnel and onto this cluster. The route is added
-# as the cutover step, once the config has been migrated and verified.
-#
 # Jellyfin is deliberately NOT behind Authentik forward auth: that requires a
 # browser redirect to log in, which TV, mobile and Chromecast clients cannot do.
 # It keeps its own accounts; Authentik can be added later as an OIDC option
@@ -43,6 +38,18 @@ spec:
         ports:
           http:
             port: 8096
+    route:
+      app:
+        hostnames:
+          - "stream.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8096
     persistence:
       config:
         existingClaim: jellyfin-config
