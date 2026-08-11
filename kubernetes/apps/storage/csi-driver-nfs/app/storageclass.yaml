@@ -20,8 +20,15 @@ parameters:
 reclaimPolicy: Retain
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
+# nfsvers=4.0 is the highest the NAS accepts — 4.1 and 4.2 both fail the mount
+# with "Protocol not supported". Do not "upgrade" this without testing.
+#
+# v3 is not an option and must never be used here: Talos ships no rpc.statd, so
+# a v3 mount only succeeds with `nolock`, which disables file locking outright
+# and will corrupt the SQLite databases these volumes are meant to protect.
+# v4.0 carries locking in the protocol itself and needs no statd.
 mountOptions:
-  - nfsvers=4.1
+  - nfsvers=4.0
   - hard
   - noatime
   - rsize=131072
