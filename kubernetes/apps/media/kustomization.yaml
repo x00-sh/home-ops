@@ -14,3 +14,4 @@ resources:
   - ./sabnzbd/ks.yaml
   - ./jellyfin/ks.yaml
   - ./seerr/ks.yaml
+  - ./bazarr/ks.yaml
