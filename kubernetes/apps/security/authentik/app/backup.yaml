@@ -1,0 +1,76 @@
+---
+# Nightly logical dump of the Authentik database onto the NAS.
+#
+# pg_dump rather than Volsync: Volsync can only use copyMethod: Direct here
+# (no storage class in this cluster supports CSI snapshots), which reads a live
+# PVC and can capture a torn database. A logical dump is consistent by
+# construction because Postgres gives it a single transaction snapshot.
+#
+# NOTE ON $$ BELOW: this Kustomization runs Flux postBuild substitution, which
+# expands ${VAR} and $VAR. Shell variables must therefore be written $$var so
+# that substitution leaves a single $ behind for bash. Getting this wrong
+# silently empties the variables and the script still "succeeds".
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: authentik-postgres-backup
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: nfs-backup
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: authentik-postgres-backup
+spec:
+  # 03:00 UTC — the node has no timezone configured, so UTC is its local time
+  schedule: "0 3 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dump
+              # Same image as the cluster, so pg_dump matches the server version
+              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              env:
+                - name: PGURI
+                  valueFrom:
+                    secretKeyRef:
+                      name: authentik-postgres-app
+                      key: uri
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  out="/backup/authentik-$$(date -u +%Y%m%dT%H%M%SZ).dump"
+                  # Write to .tmp, verify the archive parses, then publish.
+                  # A half-written dump must never look like a good one.
+                  pg_dump --format=custom --compress=9 --file="$$out.tmp" "$$PGURI"
+                  pg_restore --list "$$out.tmp" > /dev/null
+                  mv "$$out.tmp" "$$out"
+                  find /backup -name 'authentik-*.dump' -type f -mtime +30 -delete
+                  find /backup -name 'authentik-*.dump.tmp' -type f -mtime +1 -delete
+                  echo "backup complete:"
+                  ls -la /backup
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 10m
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: authentik-postgres-backup
