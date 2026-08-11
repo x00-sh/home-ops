@@ -9,6 +9,10 @@ spec:
       kind: HelmRelease
       name: csi-driver-nfs
       namespace: storage
+  # StorageClass.parameters is immutable, so editing the share or server would
+  # otherwise wedge this Kustomization on "field is immutable" until someone
+  # deletes the class by hand. force lets Flux replace it instead.
+  force: true
   interval: 1h
   path: ./kubernetes/apps/storage/csi-driver-nfs/app
   postBuild:
