@@ -8,7 +8,7 @@ spec:
     - name: media-volume
       namespace: media
   interval: 1h
-  path: ./kubernetes/apps/media/sonarr/app
+  path: ./kubernetes/apps/media/bazarr/app
   postBuild:
     substituteFrom:
       - name: cluster-secrets
