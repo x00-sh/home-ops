@@ -1,0 +1,31 @@
+---
+# PVC backups, restic mover.
+#
+# Neither storage class here supports CSI snapshots, so ReplicationSources must
+# use copyMethod: Direct — the mover reads the live PVC. That is fine for flat
+# files but can tear a database mid-write, so anything holding SQLite needs its
+# writer quiesced or its own dump; see the migration plan before wiring apps up.
+#
+# The restic repository lives on the NAS via a moverVolumes mount of an
+# nfs-backup PVC, so no S3 or REST server is needed.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: volsync
+spec:
+  chart:
+    spec:
+      chart: volsync
+      version: 0.16.0
+      sourceRef:
+        kind: HelmRepository
+        name: backube
+  interval: 1h
+  values:
+    manageCRDs: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 10m
+      limits:
+        memory: 256Mi

@@ -11,3 +11,4 @@ resources:
   - ./openebs-localpv/ks.yaml
   - ./csi-driver-nfs/ks.yaml
   - ./snapshot-controller/ks.yaml
+  - ./volsync/ks.yaml
