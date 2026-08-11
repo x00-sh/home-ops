@@ -16,4 +16,7 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: media
-  wait: true
+  # Must stay false: openebs-hostpath is WaitForFirstConsumer, so the config
+  # PVCs here stay Pending until a pod mounts them. With wait: true this
+  # Kustomization never goes Ready and every app depending on it is blocked.
+  wait: false
