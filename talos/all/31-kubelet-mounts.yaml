@@ -1,0 +1,14 @@
+machine:
+  kubelet:
+    # Talos runs kubelet in a container, so it cannot see arbitrary host paths.
+    # Without this bind mount the hostpath provisioner creates the directory on
+    # the node successfully but kubelet still fails every mount with
+    # "path ... does not exist".
+    extraMounts:
+      - destination: /var/openebs/local
+        type: bind
+        source: /var/openebs/local
+        options:
+          - bind
+          - rshared
+          - rw
