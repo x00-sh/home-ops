@@ -20,7 +20,7 @@ spec:
   values:
     controllers:
       jellyfin:
-        replicas: 0
+        replicas: 1
         type: deployment
         strategy: Recreate
         containers:

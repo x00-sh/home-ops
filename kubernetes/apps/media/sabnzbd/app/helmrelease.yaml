@@ -1,5 +1,5 @@
 ---
-# replicas: 0 until the existing configuration has been copied into
+# replicas: 1 until the existing configuration has been copied into
 # sabnzbd-config. Starting empty would create a fresh database that the
 # migration would then have to overwrite.
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -14,7 +14,7 @@ spec:
   values:
     controllers:
       sabnzbd:
-        replicas: 0
+        replicas: 1
         type: deployment
         strategy: Recreate
         containers:
