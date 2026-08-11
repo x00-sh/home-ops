@@ -1,0 +1,46 @@
+---
+# The whole media library as ONE volume, mounted identically by every media app.
+#
+# Static, not a StorageClass: dynamic provisioning would hand each app its own
+# empty pvc-<uuid> subdirectory, which is useless for an existing library. More
+# importantly, hardlinks only survive within a single mount of a single export.
+# downloads/, movies/ and tv/ all live under /volume1/media, so SABnzbd can
+# import into the library without copying — but only while every app sees them
+# through this one mount.
+#
+# Mounted at /data in the *arr and SABnzbd pods to match the paths already
+# stored in their databases, so migrated config keeps working unchanged.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: media-nfs
+spec:
+  capacity:
+    storage: 11Ti
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.0
+    - hard
+    - noatime
+    - rsize=131072
+    - wsize=131072
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: "10.0.0.20#volume1/media#media-nfs"
+    volumeAttributes:
+      server: "10.0.0.20"
+      share: /volume1/media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: ""
+  volumeName: media-nfs
+  resources:
+    requests:
+      storage: 11Ti
