@@ -1,0 +1,25 @@
+---
+# Single instance on node NVMe. There is one node, so replicas would buy
+# nothing; durability comes from backups, not from redundancy here.
+#
+# CloudNativePG creates a secret named authentik-postgres-app holding the
+# generated credentials for the `authentik` user.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: authentik-postgres
+spec:
+  instances: 1
+  storage:
+    size: 10Gi
+    storageClass: openebs-hostpath
+  bootstrap:
+    initdb:
+      database: authentik
+      owner: authentik
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

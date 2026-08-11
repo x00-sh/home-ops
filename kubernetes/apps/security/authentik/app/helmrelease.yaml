@@ -1,0 +1,61 @@
+---
+# Authentik 2026.x no longer needs Redis — the chart has no redis dependency and
+# no redis values, because task queuing and caching moved onto Postgres. The
+# migration plan still lists Redis; it is not required.
+#
+# Non-secret config stays in these values and becomes AUTHENTIK_* env vars via a
+# chart-generated Secret. Secrets arrive separately through global.envFrom,
+# which is concatenated after that Secret and therefore wins on any key clash.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: authentik
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: authentik
+  interval: 1h
+  values:
+    authentik:
+      # Points at the CloudNativePG read-write service
+      postgresql:
+        host: authentik-postgres-rw
+        name: authentik
+        user: authentik
+        port: 5432
+      bootstrap_email: jakob.rosenlund@gmail.com
+      error_reporting:
+        enabled: false
+    global:
+      env:
+        # CloudNativePG owns and rotates this; read it where it lives rather
+        # than copying it into 1Password
+        - name: AUTHENTIK_POSTGRESQL__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: authentik-postgres-app
+              key: password
+      envFrom:
+        - secretRef:
+            name: authentik-secret
+    server:
+      # HTTPRoute is written by hand in httproute.yaml. The chart's own route
+      # support is documented as an early beta that may change.
+      route:
+        main:
+          enabled: false
+      ingress:
+        enabled: false
+      resources:
+        requests:
+          cpu: 50m
+          memory: 512Mi
+        limits:
+          memory: 1Gi
+    worker:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 512Mi
+        limits:
+          memory: 1Gi

@@ -1,0 +1,32 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: authentik
+spec:
+  dependsOn:
+    - name: onepassword-connect
+      namespace: security
+    - name: cloudnative-pg
+      namespace: database
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: authentik
+      namespace: security
+  interval: 1h
+  path: ./kubernetes/apps/security/authentik/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: security
+  # Longer than the default: the database has to initialise and Authentik runs
+  # its migrations before the server reports ready.
+  timeout: 15m
+  wait: true
