@@ -1,0 +1,62 @@
+---
+# No HTTPRoute yet — same reason as Jellyfin. request.${SECRET_DOMAIN} is still
+# served by the docker tunnel and must not be repointed until cutover.
+#
+# Not behind forward auth: Seerr authenticates its users against Jellyfin
+# accounts, so a second login in front of it would mean every family member
+# also needs an Authentik account.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: seerr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: seerr
+  interval: 1h
+  values:
+    controllers:
+      seerr:
+        replicas: 0
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/seerr-team/seerr
+              tag: v3.4.1
+            env:
+              TZ: Europe/Copenhagen
+              PORT: "5055"
+            resources:
+              requests:
+                cpu: 25m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      app:
+        controller: seerr
+        ports:
+          http:
+            port: 5055
+    configMaps:
+      branding:
+        enabled: true
+        data:
+          # A 1x1 blank SVG that hides the stock Seerr logo, carried over from
+          # the docker stack where it was a bind-mounted file.
+          logo_stacked.svg: |
+            <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"></svg>
+    persistence:
+      config:
+        existingClaim: seerr-config
+        globalMounts:
+          - path: /app/config
+      branding:
+        type: configMap
+        identifier: branding
+        globalMounts:
+          - path: /app/public/logo_stacked.svg
+            subPath: logo_stacked.svg
+            readOnly: true

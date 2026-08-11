@@ -1,0 +1,58 @@
+---
+# No HTTPRoute yet, on purpose. external-dns runs policy=sync, so publishing a
+# route for stream.${SECRET_DOMAIN} would immediately repoint that name away
+# from the still-serving docker tunnel and onto this cluster. The route is added
+# as the cutover step, once the config has been migrated and verified.
+#
+# Jellyfin is deliberately NOT behind Authentik forward auth: that requires a
+# browser redirect to log in, which TV, mobile and Chromecast clients cannot do.
+# It keeps its own accounts; Authentik can be added later as an OIDC option
+# inside Jellyfin without breaking native clients.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: jellyfin
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: jellyfin
+  interval: 1h
+  values:
+    controllers:
+      jellyfin:
+        replicas: 0
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: jellyfin/jellyfin
+              tag: 10.11.11
+            env:
+              TZ: Europe/Amsterdam
+              JELLYFIN_PublishedServerUrl: "https://stream.${SECRET_DOMAIN}"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+    service:
+      app:
+        controller: jellyfin
+        ports:
+          http:
+            port: 8096
+    persistence:
+      config:
+        existingClaim: jellyfin-config
+        globalMounts:
+          - path: /config
+      cache:
+        existingClaim: jellyfin-cache
+        globalMounts:
+          - path: /cache
+      media:
+        existingClaim: media
+        globalMounts:
+          - path: /media

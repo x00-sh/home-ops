@@ -1,0 +1,64 @@
+---
+# replicas: 0 until the existing configuration has been copied into
+# sonarr-config. Starting empty would create a fresh database that the
+# migration would then have to overwrite.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sonarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: sonarr
+  interval: 1h
+  values:
+    controllers:
+      sonarr:
+        replicas: 0
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/hotio/sonarr
+              tag: release-4.0.19.2979
+            env:
+              TZ: Europe/Amsterdam
+              PUID: "1000"
+              PGID: "1000"
+              UMASK: "002"
+            resources:
+              requests:
+                cpu: 25m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      app:
+        controller: sonarr
+        ports:
+          http:
+            port: 8989
+    route:
+      app:
+        # Internal gateway: these were LAN-only under docker, and Authentik
+        # forward auth is layered on top rather than instead of that.
+        hostnames:
+          - "sonarr.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8989
+    persistence:
+      config:
+        existingClaim: sonarr-config
+        globalMounts:
+          - path: /config
+      media:
+        existingClaim: media
+        globalMounts:
+          - path: /data

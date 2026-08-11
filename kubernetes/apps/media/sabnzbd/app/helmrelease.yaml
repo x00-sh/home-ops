@@ -1,0 +1,64 @@
+---
+# replicas: 0 until the existing configuration has been copied into
+# sabnzbd-config. Starting empty would create a fresh database that the
+# migration would then have to overwrite.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sabnzbd
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: sabnzbd
+  interval: 1h
+  values:
+    controllers:
+      sabnzbd:
+        replicas: 0
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/hotio/sabnzbd
+              tag: release-5.1.0
+            env:
+              TZ: Europe/Amsterdam
+              PUID: "1000"
+              PGID: "1000"
+              UMASK: "002"
+            resources:
+              requests:
+                cpu: 25m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      app:
+        controller: sabnzbd
+        ports:
+          http:
+            port: 8080
+    route:
+      app:
+        # Internal gateway: these were LAN-only under docker, and Authentik
+        # forward auth is layered on top rather than instead of that.
+        hostnames:
+          - "sabnzbd.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
+    persistence:
+      config:
+        existingClaim: sabnzbd-config
+        globalMounts:
+          - path: /config
+      media:
+        existingClaim: media
+        globalMounts:
+          - path: /data
