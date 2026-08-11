@@ -1,0 +1,34 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs-localpv
+spec:
+  chart:
+    spec:
+      chart: localpv-provisioner
+      version: 4.5.1
+      sourceRef:
+        kind: HelmRepository
+        name: openebs-localpv
+  interval: 1h
+  values:
+    # Do not phone home with cluster telemetry
+    analytics:
+      enabled: false
+    localpv:
+      # Under /var so it lives on the EPHEMERAL partition and survives reboots
+      basePath: /var/openebs/local
+      resources:
+        requests:
+          cpu: 10m
+        limits:
+          memory: 128Mi
+    hostpathClass:
+      enabled: true
+      name: openebs-hostpath
+      isDefaultClass: true
+      # Delete, not Retain: a Released PV blocks reprovisioning at the same
+      # path, which makes restores harder. Volsync is the safety net instead.
+      reclaimPolicy: Delete
+      basePath: /var/openebs/local
