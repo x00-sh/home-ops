@@ -1,0 +1,32 @@
+---
+# Cluster-wide VolumeSnapshot CRDs and controller.
+#
+# Present because Volsync requires it: "The Kubernetes snapshot controller must
+# be installed on the cluster, whether or not clones & snapshots are used."
+# Neither storage class in this cluster can actually snapshot yet, so backups
+# use copyMethod: Direct — the controller is a hard dependency regardless.
+#
+# Deliberately its own release rather than csi-driver-nfs's bundled
+# externalSnapshotter: these CRDs are cluster-scoped and outlive any one driver.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: snapshot-controller
+spec:
+  chart:
+    spec:
+      chart: snapshot-controller
+      version: 5.2.0
+      sourceRef:
+        kind: HelmRepository
+        name: piraeus
+  interval: 1h
+  values:
+    installCRDs: true
+    controller:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 10m
+        limits:
+          memory: 128Mi
