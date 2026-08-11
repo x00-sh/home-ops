@@ -15,6 +15,11 @@ spec:
     kind: OCIRepository
     name: authentik
   interval: 1h
+  # The HelmRelease has its own timeout, separate from the Kustomization's.
+  # Authentik runs database migrations before the server reports ready; first
+  # boot took about six minutes, so the 5m default fails the install even though
+  # the deployment goes on to come up fine. Upgrades with migrations do the same.
+  timeout: 15m
   values:
     authentik:
       # Points at the CloudNativePG read-write service
