@@ -1,0 +1,28 @@
+---
+# Backup target for Volsync/restic and database dumps.
+#
+# The NAS is addressed by IP on purpose: a hostname would make every mount
+# depend on DNS being up, and mounts happen early enough that this is a real
+# ordering risk.
+#
+# Retain + onDelete=retain means neither deleting the PVC nor the PV removes
+# the data on the NAS. Backups should never be destroyed by a cluster-side
+# mistake, which is the whole point of them.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-backup
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 10.0.0.20
+  share: /volume2/backup
+  onDelete: retain
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions:
+  - nfsvers=4.1
+  - hard
+  - noatime
+  - rsize=131072
+  - wsize=131072
