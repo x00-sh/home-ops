@@ -75,8 +75,13 @@ mise exec -- just configure
 # audit (above)
 mise exec -- git add -A && mise exec -- git commit -m "feat(<scope>): ..."
 mise exec -- git push
-mise exec -- flux reconcile source git flux-system
 ```
+
+A push webhook notifies the cluster, so reconcile starts within a second or two
+of the push — there is normally no need to run `flux reconcile source git
+flux-system` by hand. Reach for it only when the webhook itself is suspect;
+GitHub records every attempt under the repository's webhook deliveries, and a
+non-200 there is the first thing to check.
 
 Commit messages: conventional style, **no AI attribution**, and no
 infrastructure detail that is not already in the committed files.
