@@ -1,0 +1,35 @@
+---
+# Installed on its own, ahead of any 1Password wiring. The 2025 attempt stood up
+# the operator and its 1Password backend in one step and could not tell which
+# half was broken.
+#
+# This chart serves external-secrets.io/v1 only; v1beta1 was removed in 0.17+.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-secrets
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: external-secrets
+  interval: 1h
+  values:
+    installCRDs: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 10m
+      limits:
+        memory: 256Mi
+    webhook:
+      resources:
+        requests:
+          cpu: 10m
+        limits:
+          memory: 128Mi
+    certController:
+      resources:
+        requests:
+          cpu: 10m
+        limits:
+          memory: 128Mi
