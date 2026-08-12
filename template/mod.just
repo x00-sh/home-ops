@@ -129,7 +129,6 @@ tidy-archive:
 [private]
 tidy-preconditions:
     test -d "{{ template_dir }}"
-    test -d "{{ justfile_dir() }}/.github/template-tests"
     test -f "{{ makejinja_config }}"
     test -f "{{ config_file }}"
     test -f "{{ sample_config_file }}"
@@ -138,7 +137,6 @@ tidy-preconditions:
     test -f "{{ justfile_dir() }}/justfile"
     test -f "{{ justfile_dir() }}/.mise/config.toml"
     test -f "{{ justfile_dir() }}/.renovaterc.json5"
-    compgen -G "{{ justfile_dir() }}/.github/workflows/template-*.yaml" > /dev/null
 
 [private]
 tidy-strip:
