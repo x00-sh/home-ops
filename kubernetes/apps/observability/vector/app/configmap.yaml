@@ -1,0 +1,43 @@
+---
+# Aggregator for Talos's own system logs.
+#
+# Alloy already collects pod logs, but Talos ships host logs as newline
+# delimited JSON over a raw TCP socket, and Alloy has no source that speaks
+# that. Vector does, and this is the shape Talos itself documents.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+data:
+  vector.yaml: |
+    data_dir: /vector-data-dir
+
+    api:
+      enabled: true
+      address: 0.0.0.0:8686
+
+    sources:
+      talos:
+        type: socket
+        mode: tcp
+        address: 0.0.0.0:6000
+        framing:
+          method: newline_delimited
+        decoding:
+          codec: json
+
+    sinks:
+      loki:
+        type: loki
+        inputs: [talos]
+        endpoint: http://loki.observability.svc.cluster.local:3100
+        encoding:
+          codec: json
+        # Deliberately only two labels. Talos's own fields (talos-service,
+        # talos-level and friends) stay inside the JSON line and are filtered
+        # at query time with `| json` — promoting them to labels would give
+        # Loki a stream per service and per level, which is how a small Loki
+        # gets slow.
+        labels:
+          job: talos
+          host: talos-01

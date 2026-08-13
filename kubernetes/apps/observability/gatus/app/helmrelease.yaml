@@ -162,6 +162,14 @@ spec:
           interval: 1m
           conditions: ["[STATUS] < 400"]
           alerts: [{ type: ntfy }]
+        - name: vector
+          group: observability
+          # Talos ships its system logs here; if it is down they are simply
+          # lost, with nothing else to notice.
+          url: "tcp://vector.observability.svc.cluster.local:6000"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
         - name: ntfy bridge
           group: observability
           # If this is down, cluster-health alerts silently go nowhere — so it

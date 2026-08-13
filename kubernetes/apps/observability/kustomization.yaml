@@ -14,3 +14,4 @@ resources:
   - ./loki/ks.yaml
   - ./alloy/ks.yaml
   - ./headlamp/ks.yaml
+  - ./vector/ks.yaml
