@@ -46,6 +46,8 @@ spec:
       envFrom:
         - secretRef:
             name: authentik-secret
+        - secretRef:
+            name: authentik-oidc-clients
     server:
       # HTTPRoute is written by hand in httproute.yaml. The chart's own route
       # support is documented as an early beta that may change.
