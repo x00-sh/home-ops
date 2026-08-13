@@ -1,0 +1,18 @@
+---
+# LAN only. Headlamp can read most of the cluster, so publishing it is a bigger
+# step than publishing Grafana even behind identical authentication.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: headlamp
+spec:
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+      sectionName: https
+  hostnames:
+    - "dash.${SECRET_DOMAIN}"
+  rules:
+    - backendRefs:
+        - name: headlamp
+          port: 80

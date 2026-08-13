@@ -1,0 +1,26 @@
+---
+# OIDC authentication for the Kubernetes API server, so Headlamp can pass a
+# user's Authentik token through and have the API accept it.
+#
+# Hand-written: the template does not generate this filename, so topf globs it
+# in and `just configure` leaves it alone.
+#
+# The issuer is per-application in Authentik, hence the /headlamp/ path — the
+# `aud` claim must equal oidc-client-id, so one API server trusts exactly one
+# application. The prefixes keep OIDC identities in their own namespace: an
+# Authentik group `headlamp-users` becomes `oidc:headlamp-users` to Kubernetes
+# RBAC, so it can never collide with a real ServiceAccount or certificate
+# identity.
+#
+# This does NOT replace certificate auth. The admin kubeconfig keeps working
+# regardless of whether Authentik is reachable, which is what makes this safe
+# to change: a broken OIDC config cannot lock anyone out of the cluster.
+cluster:
+  apiServer:
+    extraArgs:
+      oidc-issuer-url: https://auth.x00.sh/application/o/headlamp/
+      oidc-client-id: headlamp
+      oidc-username-claim: email
+      oidc-username-prefix: "oidc:"
+      oidc-groups-claim: groups
+      oidc-groups-prefix: "oidc:"

@@ -156,6 +156,12 @@ spec:
           interval: 1m
           conditions: ["[STATUS] == 200"]
           alerts: [{ type: ntfy }]
+        - name: headlamp
+          group: observability
+          url: https://dash.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
         - name: ntfy bridge
           group: observability
           # If this is down, cluster-health alerts silently go nowhere — so it
