@@ -5,3 +5,4 @@ resources:
   - ./secret.sops.yaml
   - ./pvc.yaml
   - ./replicationsources.yaml
+  - ./sqlite-snapshot.yaml

@@ -1,0 +1,96 @@
+---
+# Consistent SQLite snapshots for the two applications that have no backup
+# feature of their own.
+#
+# Sonarr, Radarr and Bazarr each write their own backup zip on a schedule, and
+# Volsync copies those — so a torn copy of their live database does not matter.
+# Jellyfin and Seerr have no such feature, which left their databases as the
+# only ones where Volsync's live read had nothing consistent beside it.
+#
+# Seerr shows why this matters: a 278 KB database with a 4 MB write-ahead log
+# that had not been checkpointed for two days. Copying that pair at two
+# slightly different moments is how you get a backup that will not open.
+#
+# SQLite's online backup API takes a read lock per step and produces a single
+# fully-checkpointed file while the application keeps running — no quiescing,
+# no downtime, no cooperation from the app needed.
+#
+# Runs at 23:00 UTC, two hours ahead of the Volsync syncs at 01:00-01:50 UTC,
+# so the snapshot is always finished and settled before it is copied.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sqlite-snapshot
+spec:
+  schedule: "0 23 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # Jellyfin runs as root and its database is root-owned; Seerr's
+            # files belong to uid 1000. Root reads both, and the 0644 snapshots
+            # it writes stay readable by the Volsync mover, which runs as 1000.
+            runAsUser: 0
+          containers:
+            - name: snapshot
+              # Official image, and its bundled sqlite3 module exposes the
+              # online backup API — no package installs at runtime.
+              image: docker.io/python:3.13-alpine
+              command: ["python3", "-c"]
+              args:
+                - |
+                  import glob, os, sqlite3, sys
+
+                  patterns = ["/jellyfin/data/*.db", "/seerr/db/*.sqlite3"]
+                  rc = 0
+
+                  for pattern in patterns:
+                      sources = [p for p in glob.glob(pattern) if not p.endswith(".bak")]
+                      if not sources:
+                          print(f"no match for {pattern}", flush=True)
+                      for src in sources:
+                          dst = src + ".bak"
+                          tmp = dst + ".tmp"
+                          try:
+                              # Write to .tmp and rename, so a snapshot that
+                              # fails half way never replaces a good one.
+                              if os.path.exists(tmp):
+                                  os.remove(tmp)
+                              source = sqlite3.connect(src)
+                              target = sqlite3.connect(tmp)
+                              with target:
+                                  source.backup(target)
+                              target.close()
+                              source.close()
+                              os.replace(tmp, dst)
+                              os.chmod(dst, 0o644)
+                              print(f"ok {dst} ({os.path.getsize(dst)} bytes)", flush=True)
+                          except Exception as err:
+                              print(f"FAILED {src}: {err}", flush=True)
+                              rc = 1
+
+                  sys.exit(rc)
+              volumeMounts:
+                - name: jellyfin
+                  mountPath: /jellyfin
+                - name: seerr
+                  mountPath: /seerr
+              resources:
+                requests:
+                  cpu: 10m
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: jellyfin
+              persistentVolumeClaim:
+                claimName: jellyfin-config
+            - name: seerr
+              persistentVolumeClaim:
+                claimName: seerr-config
