@@ -19,11 +19,15 @@ spec:
     replicaCount: 1
     config:
       oidc:
-        secret:
-          # Supplied by secret.sops.yaml rather than rendered from values, so
-          # the client secret never passes through a Helm release.
-          create: false
+        # externalSecret, not `secret`, despite the latter appearing to accept
+        # an existing secret: the chart only renders the OIDC environment when
+        # secret.create is true, so that path yields a pod with no OIDC at all.
+        # This one mounts the secret with envFrom, which is why its keys are
+        # named OIDC_*.
+        externalSecret:
+          enabled: true
           name: headlamp-oidc
+          hasScopes: true
     # The chart binds its ServiceAccount to cluster-admin by default. That is
     # both unnecessary — with OIDC the user's own token authorises every call —
     # and dangerous, since anything that ever reached this pod would inherit it.
