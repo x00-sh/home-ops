@@ -1,0 +1,23 @@
+---
+# Ship Talos's own service logs to the Vector aggregator in the cluster.
+#
+# Hand-written; the template does not generate this filename, so `just
+# configure` leaves it alone. Machine-level rather than control-plane because
+# logging is a property of the node, not of its role.
+#
+# 127.0.0.1 works because Vector runs with hostNetwork and therefore binds the
+# node's own interfaces. That deliberately avoids depending on cluster
+# networking, which is not up when Talos starts logging.
+#
+# Accepted limitation: logs produced before Vector is running — early boot, or
+# any period when the cluster is down — go nowhere. This is a supplement to
+# `talosctl logs`, not a replacement, and it is worth least in exactly the
+# situation you most want it. `talosctl -n 10.0.0.156 dmesg` remains the tool
+# when the node is unwell.
+#
+# json_lines is the only format Talos supports.
+machine:
+  logging:
+    destinations:
+      - endpoint: "tcp://127.0.0.1:6000"
+        format: json_lines
