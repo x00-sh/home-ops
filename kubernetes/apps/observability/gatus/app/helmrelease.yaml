@@ -210,6 +210,20 @@ spec:
           interval: 2m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
+        - name: frigate
+          group: infrastructure
+          # The NVR, in an LXC on the NUC. Checks that the web UI answers —
+          # which is not the same as "cameras are recording"; Frigate could be
+          # up and blind. A real recording check would need its API and a
+          # judgement about how stale is too stale.
+          url: https://frigate.home.${SECRET_DOMAIN}:8971/login
+          interval: 2m
+          client:
+            # Frigate serves a self-signed certificate on 8971; a verified
+            # request gets no response at all.
+            insecure: true
+          conditions: ["[STATUS] == 200"]
+          alerts: [{ type: ntfy }]
         - name: internet
           group: infrastructure
           # Distinguishes "my stuff broke" from "my ISP broke" — without it every
