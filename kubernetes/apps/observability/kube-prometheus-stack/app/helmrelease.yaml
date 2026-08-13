@@ -30,9 +30,11 @@ spec:
         # behaviour. On a single node with no CPU pressure it is noise, and an
         # alert that cries wolf is worse than no alert.
         CPUThrottlingHigh: true
-        # Cilium creates and destroys lxc* veth interfaces as pods come and go,
-        # which this rule reads as flapping hardware.
-        NodeNetworkInterfaceFlapping: true
+        # NodeNetworkInterfaceFlapping is deliberately NOT disabled here, even
+        # though Cilium's lxc* interface churn can trip it. It is the only rule
+        # in its group, and `disabled` empties the group rather than removing
+        # it, which the PrometheusRule CRD rejects (rules must be an array).
+        # If it turns out noisy, silence it in Alertmanager instead.
 
     alertmanager:
       # Routes and receivers land in a later step; until then the chart's
