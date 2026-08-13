@@ -1,0 +1,131 @@
+---
+# Log collection. A DaemonSet reading container logs off the node's disk and
+# pushing them to Loki. Promtail did this job until it was deprecated in
+# favour of Alloy; do not reach for it.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: alloy
+spec:
+  chart:
+    spec:
+      chart: alloy
+      version: 1.11.1
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+  interval: 1h
+  values:
+    alloy:
+      # Reading /var/log/pods means reading files owned by root with
+      # directories the alloy user cannot traverse. This container only tails
+      # logs and talks to Loki, and the alternative — pulling every log line
+      # through the Kubernetes API instead — puts the load on the API server,
+      # which is the component least able to absorb it here.
+      securityContext:
+        runAsUser: 0
+      mounts:
+        varlog: true
+      # Single node, so no cluster coordination to do.
+      clustering:
+        enabled: false
+      extraEnv:
+        # The pod's own HOSTNAME is the pod name, not the node's, so the field
+        # selector below needs this passed in explicitly.
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      resources:
+        requests:
+          cpu: 25m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      configMap:
+        content: |-
+          logging {
+            level  = "info"
+            format = "logfmt"
+          }
+
+          // Only pods scheduled on THIS node: their log files are the only
+          // ones present on this node's disk. Redundant while there is one
+          // node, and correct the day there are two.
+          discovery.kubernetes "pods" {
+            role = "pod"
+
+            selectors {
+              role  = "pod"
+              field = "spec.nodeName=" + sys.env("NODE_NAME")
+            }
+          }
+
+          discovery.relabel "pod_logs" {
+            targets = discovery.kubernetes.pods.targets
+
+            rule {
+              source_labels = ["__meta_kubernetes_namespace"]
+              target_label  = "namespace"
+            }
+
+            rule {
+              source_labels = ["__meta_kubernetes_pod_name"]
+              target_label  = "pod"
+            }
+
+            rule {
+              source_labels = ["__meta_kubernetes_pod_container_name"]
+              target_label  = "container"
+            }
+
+            rule {
+              source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+              target_label  = "app"
+            }
+
+            rule {
+              source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+              separator     = "/"
+              target_label  = "job"
+            }
+
+            // On-disk layout is /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log,
+            // so globbing on the uid is what ties a discovered pod to its files.
+            rule {
+              source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+              separator     = "/"
+              action        = "replace"
+              replacement   = "/var/log/pods/*$1/*.log"
+              target_label  = "__path__"
+            }
+          }
+
+          local.file_match "pod_logs" {
+            path_targets = discovery.relabel.pod_logs.output
+          }
+
+          loki.source.file "pod_logs" {
+            targets    = local.file_match.pod_logs.targets
+            forward_to = [loki.process.pod_logs.receiver]
+          }
+
+          loki.process "pod_logs" {
+            // containerd writes its own framing around each line; without this
+            // every log entry arrives wrapped in a timestamp and stream marker.
+            stage.cri {}
+
+            forward_to = [loki.write.default.receiver]
+          }
+
+          loki.write "default" {
+            endpoint {
+              url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+            }
+          }
+
+    controller:
+      type: daemonset
+
+    serviceMonitor:
+      enabled: true
