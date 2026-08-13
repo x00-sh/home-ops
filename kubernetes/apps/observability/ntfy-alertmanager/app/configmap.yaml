@@ -1,0 +1,62 @@
+---
+# Alertmanager can POST a webhook but cannot shape the body, and ntfy wants its
+# title, priority and tags as headers. This bridge translates between the two so
+# the notification arriving on a phone is readable rather than raw JSON.
+#
+# No credentials here: the ntfy topic is public on ntfy.sh and the bridge is
+# only reachable inside the cluster, so the file is a plain ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ntfy-alertmanager-config
+data:
+  config: |
+    http-address :8080
+    log-level info
+    log-format json
+
+    # One notification per alert rather than one per Alertmanager group, so a
+    # phone notification names the thing that is actually broken.
+    alert-mode single
+
+    ntfy {
+        server https://ntfy.sh
+        topic x00_cluster-health
+        markdown true
+    }
+
+    # Severity drives how loudly the phone complains. Priority 5 bypasses Do Not
+    # Disturb on the ntfy app, so it is reserved for things that genuinely
+    # warrant waking someone.
+    labels {
+        order "severity"
+
+        severity "critical" {
+            priority 5
+            tags "rotating_light"
+        }
+
+        severity "warning" {
+            priority 4
+            tags "warning"
+        }
+
+        severity "info" {
+            priority 2
+            tags "information_source"
+        }
+    }
+
+    resolved {
+        update-notification true
+        tags "white_check_mark"
+        priority 2
+    }
+
+    # alert-mode single re-sends on every Alertmanager repeat_interval without
+    # this, which would mean the same alert arriving every six hours forever.
+    cache {
+        type memory
+        duration 24h
+        cleanup-interval 1h
+    }

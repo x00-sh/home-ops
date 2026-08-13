@@ -1,0 +1,41 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ntfy-alertmanager
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: ntfy-alertmanager
+  interval: 1h
+  values:
+    controllers:
+      ntfy-alertmanager:
+        replicas: 1
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/xenrox/ntfy-alertmanager
+              tag: 1.0.0
+            args: ["--config", "/config/config"]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+    service:
+      app:
+        controller: ntfy-alertmanager
+        ports:
+          http:
+            port: 8080
+    persistence:
+      config:
+        type: configMap
+        name: ntfy-alertmanager-config
+        globalMounts:
+          - path: /config/config
+            subPath: config
+            readOnly: true
