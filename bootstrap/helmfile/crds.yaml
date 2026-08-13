@@ -32,4 +32,7 @@ releases:
   - name: prometheus-operator-crds
     namespace: observability
     chart: oci://ghcr.io/prometheus-community/charts/prometheus-operator-crds
-    version: 29.0.0
+    # Keep in step with the operator shipped by kube-prometheus-stack: these CRDs
+    # are applied out-of-band by `just bootstrap apps-crds`, so nothing updates
+    # them automatically when the chart moves. 31.0.0 == operator v0.93.0.
+    version: 31.0.0

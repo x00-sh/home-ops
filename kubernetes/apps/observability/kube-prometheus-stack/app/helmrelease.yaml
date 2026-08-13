@@ -1,0 +1,131 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kube-prometheus-stack
+  interval: 1h
+  # First install pulls the operator, Prometheus, Alertmanager, Grafana,
+  # kube-state-metrics and node-exporter before anything reports ready.
+  timeout: 15m
+  values:
+    # The Prometheus Operator CRDs are installed out-of-band at bootstrap
+    # (bootstrap/helmfile/crds.yaml, kept in step with the operator version
+    # this chart ships). Letting the chart own them too would give the same
+    # CRDs two owners.
+    crds:
+      enabled: false
+
+    defaultRules:
+      rules:
+        # kube-proxy does not exist here — Cilium replaces it (proxy.disabled
+        # in the Talos config). Left on, KubeProxyDown alerts forever on a job
+        # that can never have a target.
+        kubeProxy: false
+      disabled:
+        # Fires for any container with a modest CPU limit and normal bursty
+        # behaviour. On a single node with no CPU pressure it is noise, and an
+        # alert that cries wolf is worse than no alert.
+        CPUThrottlingHigh: true
+        # Cilium creates and destroys lxc* veth interfaces as pods come and go,
+        # which this rule reads as flapping hardware.
+        NodeNetworkInterfaceFlapping: true
+
+    alertmanager:
+      # Routes and receivers land in a later step; until then the chart's
+      # default null receiver swallows everything, so nothing can page.
+      alertmanagerSpec:
+        retention: 120h
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: openebs-hostpath
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 2Gi
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+
+    grafana:
+      # Deliberately stateless: dashboards come from the chart and from
+      # ConfigMaps the sidecar picks up, so there is nothing here worth backing
+      # up and the pod can be thrown away at any time.
+      persistence:
+        enabled: false
+      admin:
+        existingSecret: grafana-secret
+      defaultDashboardsTimezone: Europe/Amsterdam
+      grafana.ini:
+        server:
+          root_url: https://grafana.${SECRET_DOMAIN}
+        analytics:
+          check_for_updates: false
+          reporting_enabled: false
+      # HTTPRoute is written by hand in httproute.yaml, as elsewhere in this
+      # repo.
+      ingress:
+        enabled: false
+      resources:
+        requests:
+          cpu: 25m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+
+    # Talos runs etcd as a host service rather than a static pod, so there is
+    # no pod for a selector to match — point the scrape at the node directly.
+    # Metrics are plain HTTP on 2381 (listen-metrics-urls in the Talos config),
+    # so no client certificates are involved.
+    kubeEtcd:
+      endpoints: ["10.0.0.156"]
+
+    kubeProxy:
+      enabled: false
+
+    prometheus:
+      prometheusSpec:
+        retention: 90d
+        # Below the 50Gi volume, so Prometheus drops the oldest blocks before
+        # the filesystem fills. openebs-hostpath cannot expand a PVC, so
+        # running out of space here means recreating the volume.
+        retentionSize: 42GB
+        # Without these, the operator only picks up objects carrying this
+        # release's labels — which would silently exclude the PodMonitor that
+        # envoy-gateway already ships, and everything added by later steps.
+        podMonitorSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        scrapeConfigSelectorNilUsesHelmValues: false
+        serviceMonitorSelectorNilUsesHelmValues: false
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: openebs-hostpath
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1Gi
+          limits:
+            memory: 4Gi
+      ingress:
+        enabled: false
+
+    prometheusOperator:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
