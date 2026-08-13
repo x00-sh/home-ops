@@ -65,12 +65,38 @@ spec:
       admin:
         existingSecret: grafana-secret
       defaultDashboardsTimezone: Europe/Amsterdam
+      # Grafana maps GF_<SECTION>_<KEY> onto its config, so the client secret
+      # reaches the OIDC settings without ever appearing in grafana.ini.
+      envValueFrom:
+        GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+          secretKeyRef:
+            name: grafana-secret
+            key: oidc-client-secret
       grafana.ini:
         server:
           root_url: https://grafana.${SECRET_DOMAIN}
         analytics:
           check_for_updates: false
           reporting_enabled: false
+        auth.generic_oauth:
+          enabled: true
+          name: Authentik
+          client_id: grafana
+          # `profile` carries the groups claim that role_attribute_path reads.
+          scopes: openid profile email
+          auth_url: https://auth.${SECRET_DOMAIN}/application/o/authorize/
+          token_url: https://auth.${SECRET_DOMAIN}/application/o/token/
+          api_url: https://auth.${SECRET_DOMAIN}/application/o/userinfo/
+          # Membership of grafana-admins in Authentik decides the role, so
+          # access is granted and revoked there rather than inside Grafana.
+          role_attribute_path: contains(groups[*], 'grafana-admins') && 'Admin' || 'Viewer'
+          allow_sign_up: true
+          use_pkce: true
+        auth:
+          # The local admin stays reachable at /login for the case this whole
+          # path is what is broken.
+          oauth_auto_login: false
+          disable_login_form: false
       # HTTPRoute is written by hand in httproute.yaml, as elsewhere in this
       # repo.
       ingress:

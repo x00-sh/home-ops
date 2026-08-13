@@ -21,6 +21,9 @@ spec:
   # the deployment goes on to come up fine. Upgrades with migrations do the same.
   timeout: 15m
   values:
+    blueprints:
+      configMaps:
+        - authentik-blueprints
     authentik:
       # Points at the CloudNativePG read-write service
       postgresql:
