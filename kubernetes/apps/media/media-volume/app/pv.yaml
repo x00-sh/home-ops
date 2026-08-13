@@ -37,6 +37,14 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: media
+  labels:
+    # Opts this volume out of the generic KubePersistentVolumeFillingUp alerts,
+    # which upstream honours through kube_persistentvolumeclaim_labels. A media
+    # library that lives permanently near-full would keep those alerts standing
+    # forever, and an alert that is always on is an alert nobody reads. The
+    # replacement watches absolute free space instead — see
+    # observability/kube-prometheus-stack/app/prometheusrule.yaml.
+    excluded-from-alerts: "true"
 spec:
   accessModes: ["ReadWriteMany"]
   storageClassName: ""

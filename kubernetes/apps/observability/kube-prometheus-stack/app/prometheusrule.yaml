@@ -1,0 +1,39 @@
+---
+# Homelab-specific alert rules, as opposed to the chart's generic ones.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: homelab-rules
+spec:
+  groups:
+    - name: homelab-storage
+      rules:
+        # The media library runs permanently near-full and is not expected to be
+        # trimmed further, so the percentage-based upstream rules are opted out
+        # (see the excluded-from-alerts label on the PVC) and replaced by an
+        # absolute floor: what matters is whether there is room for the next few
+        # downloads, not what fraction of 11 TiB is left.
+        - alert: MediaLibraryLowOnSpace
+          expr: |
+            kubelet_volume_stats_available_bytes{job="kubelet", namespace="media", persistentvolumeclaim="media"}
+              < 200 * 1024^3
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Media library is running low on space
+            description: >-
+              Only {{ $value | humanize1024 }}B free on the NFS media library.
+              Below 100 GiB this escalates to critical.
+        - alert: MediaLibraryCriticallyLowOnSpace
+          expr: |
+            kubelet_volume_stats_available_bytes{job="kubelet", namespace="media", persistentvolumeclaim="media"}
+              < 100 * 1024^3
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: Media library is nearly full
+            description: >-
+              Only {{ $value | humanize1024 }}B free on the NFS media library.
+              SABnzbd will start failing imports once it cannot unpack.
