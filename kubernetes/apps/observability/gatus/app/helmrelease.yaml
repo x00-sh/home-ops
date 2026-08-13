@@ -122,6 +122,49 @@ spec:
             - "[CERTIFICATE_EXPIRATION] > 24h"
           alerts: [{ type: ntfy }]
 
+        # --- the monitoring stack itself. Overlaps with Prometheus's own pod
+        # health alerts on purpose: those depend on Prometheus being up, and
+        # these do not. The two fail independently, which is the point. ---
+        - name: grafana
+          group: observability
+          url: https://grafana.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+        - name: alertmanager
+          group: observability
+          url: https://alerts.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+        - name: prometheus
+          group: observability
+          # No route of its own, so this goes straight to the service.
+          url: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/-/healthy
+          interval: 1m
+          conditions: ["[STATUS] == 200"]
+          alerts: [{ type: ntfy }]
+        - name: loki
+          group: observability
+          url: http://loki.observability.svc.cluster.local:3100/ready
+          interval: 1m
+          conditions: ["[STATUS] == 200"]
+          alerts: [{ type: ntfy }]
+        - name: alloy
+          group: observability
+          url: http://alloy.observability.svc.cluster.local:12345/-/ready
+          interval: 1m
+          conditions: ["[STATUS] == 200"]
+          alerts: [{ type: ntfy }]
+        - name: ntfy bridge
+          group: observability
+          # If this is down, cluster-health alerts silently go nowhere — so it
+          # is checked on the service-down topic, which does not depend on it.
+          url: "tcp://ntfy-alertmanager.observability.svc.cluster.local:8080"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+
         # --- infrastructure outside the cluster. Reachability only: these say
         # whether the box answers, not whether it is healthy. ---
         - name: nas (nfs)
