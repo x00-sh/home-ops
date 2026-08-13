@@ -38,6 +38,13 @@ data:
           client_type: confidential
           client_id: grafana
           client_secret: !Env GRAFANA_OIDC_CLIENT_SECRET
+          # Must be stated explicitly. The UI pre-fills these, but a blueprint
+          # that omits the field leaves it empty, and Authentik then rejects
+          # every authorize request with "invalid_request" before it even looks
+          # at the user.
+          grant_types:
+            - authorization_code
+            - refresh_token
           # Implicit consent: no "do you allow this app" screen for a service
           # that is only ever used by its own owner.
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
