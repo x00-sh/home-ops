@@ -23,6 +23,13 @@ spec:
   interval: 1h
   values:
     manageCRDs: true
+    # The chart always ships a ServiceMonitor, but with auth on it puts
+    # kube-rbac-proxy in front of /metrics without giving that ServiceMonitor a
+    # bearer token — so Prometheus can only ever get a 401 from it. These are
+    # backup counters on a private cluster; serving them unauthenticated is the
+    # proportionate fix.
+    metrics:
+      disableAuth: true
     replicaCount: 1
     resources:
       requests:
