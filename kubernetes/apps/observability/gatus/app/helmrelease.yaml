@@ -89,25 +89,31 @@ spec:
           group: published
           url: https://stream.${SECRET_DOMAIN}
           interval: 1m
-          conditions:
-            - "[STATUS] < 400"
-            - "[CERTIFICATE_EXPIRATION] > 240h"
+          # No certificate check: through the tunnel these present Cloudflare's
+          # edge certificate, not one we issue or renew.
+          conditions: ["[STATUS] < 400"]
           alerts: [{ type: ntfy }]
         - name: seerr
           group: published
           url: https://request.${SECRET_DOMAIN}
           interval: 1m
-          conditions:
-            - "[STATUS] < 400"
-            - "[CERTIFICATE_EXPIRATION] > 240h"
+          conditions: ["[STATUS] < 400"]
           alerts: [{ type: ntfy }]
         - name: authentik
           group: published
           url: https://auth.${SECRET_DOMAIN}
           interval: 1m
+          # Split-horizon DNS points this at the Envoy gateway, so unlike the
+          # two above it presents OUR certificate — making this the one place
+          # cert renewal is actually observable.
+          #
+          # The threshold is 24h, not the more usual 10 days: the ClusterIssuer
+          # uses Let's Encrypt's `shortlived` profile, so certificates live 6.7
+          # days total and cert-manager renews with ~53h left. Anything above
+          # ~53h would fire permanently and mean nothing.
           conditions:
             - "[STATUS] < 400"
-            - "[CERTIFICATE_EXPIRATION] > 240h"
+            - "[CERTIFICATE_EXPIRATION] > 24h"
           alerts: [{ type: ntfy }]
 
         # --- infrastructure outside the cluster. Reachability only: these say
