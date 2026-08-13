@@ -1,0 +1,151 @@
+---
+# Black-box uptime checks: does the thing answer, from the outside, the way a
+# user would meet it. That is a different question from Prometheus's "is the pod
+# healthy", and the two fail independently — a running pod behind a broken
+# gateway looks fine to Prometheus and dead to Gatus.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gatus
+spec:
+  chart:
+    spec:
+      chart: gatus
+      version: 1.5.0
+      sourceRef:
+        kind: HelmRepository
+        name: twin
+  interval: 1h
+  values:
+    image:
+      tag: v5.28.0
+    env:
+      # CloudNativePG generates and rotates this; read it where it lives.
+      POSTGRES_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: gatus-postgres-app
+            key: password
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    # HTTPRoute is hand-written in httproute.yaml, as elsewhere in this repo.
+    ingress:
+      enabled: false
+    config:
+      storage:
+        type: postgres
+        # $${...} escapes Flux's postBuild substitution so the literal
+        # ${POSTGRES_PASSWORD} survives into the config file, where Gatus
+        # expands it from the environment. Without the escape Flux would
+        # substitute it first and silently leave an empty password.
+        path: "postgres://gatus:$${POSTGRES_PASSWORD}@gatus-postgres-rw:5432/gatus?sslmode=disable"
+
+      alerting:
+        ntfy:
+          url: https://ntfy.sh
+          topic: x00_service-down
+          priority: 4
+          default-alert:
+            # Three consecutive failures before shouting: a single missed check
+            # during a rollout is not an outage.
+            failure-threshold: 3
+            success-threshold: 2
+            send-on-resolved: true
+
+      endpoints:
+        # --- media, LAN only, via the internal gateway ---
+        - name: sonarr
+          group: media
+          url: https://sonarr.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+        - name: radarr
+          group: media
+          url: https://radarr.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+        - name: bazarr
+          group: media
+          url: https://bazarr.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+        - name: sabnzbd
+          group: media
+          url: https://sabnzbd.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+
+        # --- published, so these also prove the Cloudflare tunnel end to end:
+        # the request leaves the network, resolves publicly and comes back in ---
+        - name: jellyfin
+          group: published
+          url: https://stream.${SECRET_DOMAIN}
+          interval: 1m
+          conditions:
+            - "[STATUS] < 400"
+            - "[CERTIFICATE_EXPIRATION] > 240h"
+          alerts: [{ type: ntfy }]
+        - name: seerr
+          group: published
+          url: https://request.${SECRET_DOMAIN}
+          interval: 1m
+          conditions:
+            - "[STATUS] < 400"
+            - "[CERTIFICATE_EXPIRATION] > 240h"
+          alerts: [{ type: ntfy }]
+        - name: authentik
+          group: published
+          url: https://auth.${SECRET_DOMAIN}
+          interval: 1m
+          conditions:
+            - "[STATUS] < 400"
+            - "[CERTIFICATE_EXPIRATION] > 240h"
+          alerts: [{ type: ntfy }]
+
+        # --- infrastructure outside the cluster. Reachability only: these say
+        # whether the box answers, not whether it is healthy. ---
+        - name: nas (nfs)
+          group: infrastructure
+          # Port 2049 rather than the web UI: NFS is what the cluster actually
+          # depends on for the media library and every backup.
+          url: "tcp://10.0.0.20:2049"
+          interval: 2m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: opnsense (dns)
+          group: infrastructure
+          url: "tcp://10.0.0.1:53"
+          interval: 2m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: proxmox nuc
+          group: infrastructure
+          # The host running this cluster. When it wedged on 2026-08-13 its web
+          # UI stopped answering while the VM still served from cache, so this
+          # check would have gone red before anything else did.
+          url: "tcp://10.0.0.5:8006"
+          interval: 2m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: proxmox infra1
+          group: infrastructure
+          url: "tcp://10.0.0.2:8006"
+          interval: 2m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: internet
+          group: infrastructure
+          # Distinguishes "my stuff broke" from "my ISP broke" — without it every
+          # outage looks the same from in here.
+          url: https://1.1.1.1
+          interval: 2m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]

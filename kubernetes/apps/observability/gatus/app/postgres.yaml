@@ -1,0 +1,27 @@
+---
+# Uptime history. Postgres rather than the chart's in-memory default so the
+# status page still shows a real record after a restart — the 2026-08-13 outage
+# is exactly the history worth keeping.
+#
+# Deliberately NOT added to the nightly pg_dump: uptime history is pleasant to
+# have and worthless to restore, and a second backup CronJob is a real
+# maintenance cost for data nobody will ever ask for.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: gatus-postgres
+spec:
+  instances: 1
+  storage:
+    size: 5Gi
+    storageClass: openebs-hostpath
+  bootstrap:
+    initdb:
+      database: gatus
+      owner: gatus
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 512Mi

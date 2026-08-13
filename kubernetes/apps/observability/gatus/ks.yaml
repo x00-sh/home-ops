@@ -1,0 +1,29 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gatus
+spec:
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: database
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: gatus
+      namespace: observability
+  interval: 1h
+  path: ./kubernetes/apps/observability/gatus/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: observability
+  # The database has to initialise before Gatus can connect.
+  timeout: 10m
+  wait: true
