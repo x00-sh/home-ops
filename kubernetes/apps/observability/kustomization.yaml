@@ -11,3 +11,4 @@ resources:
   - ./kube-prometheus-stack/ks.yaml
   - ./ntfy-alertmanager/ks.yaml
   - ./gatus/ks.yaml
+  - ./loki/ks.yaml

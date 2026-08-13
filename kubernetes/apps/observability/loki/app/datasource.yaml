@@ -1,0 +1,38 @@
+---
+# Picked up by the Grafana sidecar, which watches every namespace for this
+# label. Provisioning the datasource rather than adding it in the UI is what
+# lets Grafana stay stateless.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-grafana-datasource
+  labels:
+    grafana_datasource: "1"
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki.observability.svc.cluster.local:3100
+        jsonData:
+          maxLines: 1000
+---
+# The chart offers no ServiceMonitor of its own, so Loki's own metrics would
+# otherwise be invisible — including the ingestion and retention counters that
+# say whether log collection is actually working.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: loki
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+      app.kubernetes.io/instance: loki
+      app.kubernetes.io/component: single-binary
+  endpoints:
+    - port: http-metrics
+      interval: 60s
