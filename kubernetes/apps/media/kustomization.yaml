@@ -9,6 +9,7 @@ components:
 resources:
   - ./namespace.yaml
   - ./media-volume/ks.yaml
+  - ./config-backup/ks.yaml
   - ./sonarr/ks.yaml
   - ./radarr/ks.yaml
   - ./sabnzbd/ks.yaml

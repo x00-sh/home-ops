@@ -1,0 +1,14 @@
+---
+# Holds the restic repositories, one directory per application. On the NAS
+# rather than the node, which is the entire point: the node's disk is the thing
+# these backups exist to survive.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-config-restic
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: nfs-backup
+  resources:
+    requests:
+      storage: 100Gi

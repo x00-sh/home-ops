@@ -1,0 +1,219 @@
+---
+# Nightly restic backups of the six application config volumes.
+#
+# WHY THESE EXIST: on 2026-08-13 the node's NVMe stopped answering for six
+# hours. Everything else in the cluster was recoverable — manifests from git,
+# Authentik from its pg_dump, media from the NAS — but these six volumes
+# existed nowhere else. The disk came back; next time it might not.
+#
+# copyMethod is Direct because neither storage class here supports CSI
+# snapshots, so the mover reads the live volume. That is safe for flat files
+# and JSON, but a SQLite database can be caught mid-write. The *arr apps each
+# write a consistent backup zip into /config/Backups on their own schedule and
+# those zips are copied too, so a torn live database is still recoverable from
+# the zip beside it. Keep those internal backups enabled.
+#
+# Schedules are staggered: each sync starts a mover pod, and this node has one
+# disk to give.
+#
+# The specs are written out per application rather than shared through a YAML
+# anchor, because anchors do not cross document boundaries.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: sonarr-config
+spec:
+  sourcePVC: sonarr-config
+  trigger:
+    schedule: "0 1 * * *"
+  restic:
+    repository: sonarr-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Match the PUID/PGID the applications run as, so the mover can read what
+    # it copies and owns what it writes.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: radarr-config
+spec:
+  sourcePVC: radarr-config
+  trigger:
+    schedule: "10 1 * * *"
+  restic:
+    repository: radarr-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Match the PUID/PGID the applications run as, so the mover can read what
+    # it copies and owns what it writes.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: bazarr-config
+spec:
+  sourcePVC: bazarr-config
+  trigger:
+    schedule: "20 1 * * *"
+  restic:
+    repository: bazarr-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Match the PUID/PGID the applications run as, so the mover can read what
+    # it copies and owns what it writes.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: sabnzbd-config
+spec:
+  sourcePVC: sabnzbd-config
+  trigger:
+    schedule: "30 1 * * *"
+  restic:
+    repository: sabnzbd-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Match the PUID/PGID the applications run as, so the mover can read what
+    # it copies and owns what it writes.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: seerr-config
+spec:
+  sourcePVC: seerr-config
+  trigger:
+    schedule: "40 1 * * *"
+  restic:
+    repository: seerr-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Match the PUID/PGID the applications run as, so the mover can read what
+    # it copies and owns what it writes.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
+---
+# jellyfin-cache is deliberately absent: regenerable artwork and transcode
+# scratch, which would cost more to back up nightly than to rebuild.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: jellyfin-config
+spec:
+  sourcePVC: jellyfin-config
+  trigger:
+    schedule: "50 1 * * *"
+  restic:
+    repository: jellyfin-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Match the PUID/PGID the applications run as, so the mover can read what
+    # it copies and owns what it writes.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
