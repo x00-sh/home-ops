@@ -33,7 +33,7 @@ spec:
             port: 8080
     persistence:
       config:
-        type: configMap
+        type: secret
         name: ntfy-alertmanager-config
         globalMounts:
           - path: /config/config

@@ -19,6 +19,9 @@ spec:
   values:
     image:
       tag: v5.28.0
+    envFrom:
+      - secretRef:
+          name: gatus-secret
     env:
       # CloudNativePG generates and rotates this; read it where it lives.
       POSTGRES_PASSWORD:
@@ -47,7 +50,10 @@ spec:
       alerting:
         ntfy:
           url: https://ntfy.sh
-          topic: x00_service-down
+          # Escaped so Flux's substitution leaves it for Gatus to expand from
+          # the environment; the name itself is the credential and stays out of
+          # this public repository.
+          topic: $${NTFY_TOPIC}
           priority: 4
           default-alert:
             # Three consecutive failures before shouting: a single missed check
