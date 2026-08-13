@@ -20,7 +20,13 @@ cluster:
     extraArgs:
       oidc-issuer-url: https://auth.x00.sh/application/o/headlamp/
       oidc-client-id: headlamp
-      oidc-username-claim: email
+      # NOT `email`: Kubernetes special-cases that claim and demands a
+      # matching `email_verified: true`, which Authentik does not emit — every
+      # request then fails with "oidc: email not verified" even though login
+      # itself succeeded. preferred_username is Authentik's username and needs
+      # no such attestation. Identity is only cosmetic here anyway; the RBAC
+      # binding is on the group.
+      oidc-username-claim: preferred_username
       oidc-username-prefix: "oidc:"
       oidc-groups-claim: groups
       oidc-groups-prefix: "oidc:"
