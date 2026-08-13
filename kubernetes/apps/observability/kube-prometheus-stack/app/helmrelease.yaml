@@ -115,6 +115,22 @@ spec:
     kubeEtcd:
       endpoints: ["10.0.0.156"]
 
+    kubelet:
+      serviceMonitor:
+        # cAdvisor stamps its own timestamps, and when the node is busy its
+        # housekeeping falls behind the 10s scrape — so the same stale sample is
+        # returned twice and Prometheus drops the second as out of order (~10
+        # samples/s observed while Jellyfin was transcoding). Taking the scrape
+        # time instead removes the problem entirely; the accuracy this trades
+        # away is invisible at 30s resolution.
+        honorTimestamps: false
+        # With honorTimestamps off there is nothing to gain from scraping faster
+        # than cAdvisor actually updates. container_* is by far the largest
+        # metric family here, and the Prometheus volume cannot be expanded, so
+        # thirding its sample count is worth more than 10s granularity.
+        cAdvisorInterval: 30s
+        resourceInterval: 30s
+
     kubeProxy:
       enabled: false
 
