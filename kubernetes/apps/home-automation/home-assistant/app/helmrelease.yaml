@@ -47,14 +47,35 @@ spec:
               capabilities:
                 drop: ["ALL"]
             probes:
+              # Path is "/", NOT "/healthz" — this version of Home Assistant
+              # serves no /healthz route and answers 404, which reads as a
+              # failing probe rather than a wrong URL. "/" returns 200 as soon
+              # as the frontend is up.
+              #
+              # The startup probe is the important one. Home Assistant's boot
+              # blocks on integrations that reach the network, and a slow or
+              # unreachable one (aarlo retries with backoff here) can hold it
+              # for minutes. Without this, liveness kills the container before
+              # it ever finishes starting, and it restart-loops forever while
+              # looking like an application fault.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8123
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  # 10 minutes before giving up.
+                  failureThreshold: 60
               liveness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /healthz
+                    path: /
                     port: 8123
-                  initialDelaySeconds: 60
                   periodSeconds: 30
                   failureThreshold: 5
               readiness:
@@ -62,9 +83,8 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /healthz
+                    path: /
                     port: 8123
-                  initialDelaySeconds: 30
                   periodSeconds: 10
                   failureThreshold: 5
             resources:
