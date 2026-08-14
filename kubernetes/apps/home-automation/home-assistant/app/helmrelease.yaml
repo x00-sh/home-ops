@@ -1,0 +1,93 @@
+---
+# replicas: 0 until /opt/homeassistant/config has been copied into
+# home-assistant-config. Starting empty runs the onboarding wizard and writes a
+# fresh .storage, which the migration would then have to overwrite — and
+# .storage is where all 43 config entries and 1211 entities live.
+#
+# There is deliberately NO route here. homeassistant.x00.sh is live right now,
+# served by the docker tunnel. external-dns runs policy=sync, so publishing a
+# route for a name that already works would repoint it at an empty cluster.
+# The route is added in the cutover commit, not before.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: home-assistant
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: home-assistant
+  interval: 1h
+  values:
+    controllers:
+      home-assistant:
+        replicas: 0
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # The official image, not the home-operations rebuild. The latter
+              # is nicer — non-root, read-only rootfs — but it relocates Python
+              # dependencies from /config/deps into a /config/.venv and runs as
+              # uid 1000, so adopting it means re-owning the whole config tree
+              # during the cutover. Worth doing later, on a calm afternoon.
+              repository: ghcr.io/home-assistant/home-assistant
+              # Pinned to what docker runs today; the compose file floats
+              # :stable. A Home Assistant config migrates forward, not back.
+              tag: 2026.8.1
+            env:
+              TZ: Europe/Copenhagen
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8123
+                  initialDelaySeconds: 60
+                  periodSeconds: 30
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8123
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  failureThreshold: 5
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1Gi
+              limits:
+                # Uses ~825 MiB under docker today. 4Gi is headroom for a
+                # recorder purge or a database repack, both of which spike.
+                memory: 4Gi
+            # No securityContext: the official image runs as root and ignores
+            # PUID/PGID, which is exactly what it does under docker today and
+            # what the migrated config tree is owned by.
+    service:
+      app:
+        controller: home-assistant
+        ports:
+          http:
+            port: 8123
+            # Home Assistant's frontend is almost entirely websockets; without
+            # this hint the gateway treats it as plain HTTP/1.1.
+            appProtocol: kubernetes.io/ws
+    persistence:
+      config:
+        existingClaim: home-assistant-config
+        globalMounts:
+          - path: /config
+      # Frigate's recordings, read by the media browser. Nested inside /config
+      # on purpose — it reproduces the docker bind mount exactly, so every
+      # stored path in the config keeps working. Volsync backs up the config
+      # PVC only and does not descend into this mount.
+      cameras:
+        existingClaim: cameras
+        globalMounts:
+          - path: /config/cameras

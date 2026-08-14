@@ -1,0 +1,105 @@
+---
+# replicas: 0 until the docker data directory has been copied into
+# zigbee2mqtt-data. Starting empty would form a NEW Zigbee network on the
+# coordinator and orphan all 36 devices — the one outcome in this phase that
+# cannot be undone without re-pairing every device by hand.
+#
+# The dongle arrives as an allocated device at /dev/zigbee, courtesy of
+# generic-device-plugin. Nothing here names /dev/ttyUSB0, and nothing here has
+# to know which host or which USB port it is plugged into.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: zigbee2mqtt
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: zigbee2mqtt
+  interval: 1h
+  values:
+    controllers:
+      zigbee2mqtt:
+        replicas: 0
+        type: deployment
+        # Recreate, not RollingUpdate: two Zigbee2MQTT processes must never
+        # hold the coordinator at once. Overlapping instances corrupt the
+        # network's frame counters.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/koenkk/zigbee2mqtt
+              # Pinned to what docker runs today. The compose file floats
+              # :latest via watchtower, and this database migrates forward but
+              # not backward.
+              tag: 2.13.0
+            env:
+              TZ: Europe/Copenhagen
+              # These override the migrated configuration.yaml at runtime, so
+              # the file itself moves across untouched. Zigbee2MQTT maps
+              # ZIGBEE2MQTT_CONFIG_<SECTION>_<KEY> onto the config tree.
+              ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/zigbee
+              ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mqtt:1883
+            envFrom:
+              - secretRef:
+                  name: zigbee2mqtt-secret
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8080
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8080
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+            resources:
+              requests:
+                cpu: 25m
+                memory: 128Mi
+              limits:
+                # The device plugin hands the container /dev/zigbee as an
+                # allocated resource; asking for it here is what makes the
+                # scheduler place this pod only where the dongle exists.
+                squat.ai/zigbee: 1
+                memory: 512Mi
+            # No securityContext on purpose. The koenkk image ignores
+            # PUID/PGID and runs as root, which is what it does under docker
+            # today and what the migrated data is owned by. Running it
+            # unprivileged is worth doing, but not in the same change as a
+            # cutover that takes the lights out.
+    service:
+      app:
+        controller: zigbee2mqtt
+        ports:
+          http:
+            port: 8080
+    route:
+      app:
+        # LAN only. The frontend has no auth_token set and is therefore
+        # unauthenticated — it joins the *arr admin UIs in the outstanding
+        # Authentik forward-auth work rather than being published.
+        hostnames:
+          - "z2m.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
+    persistence:
+      data:
+        existingClaim: zigbee2mqtt-data
+        globalMounts:
+          - path: /app/data

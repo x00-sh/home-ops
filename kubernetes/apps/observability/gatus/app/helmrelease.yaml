@@ -190,6 +190,27 @@ spec:
           interval: 1m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
+        # Both of these are written now rather than after the cutover, so that
+        # turning monitoring on is a one-word change made in the same commit
+        # that publishes the app — not a task that gets deferred and forgotten.
+        # They stay disabled until then because until then they are correctly
+        # down, and an alert that fires for days teaches people to ignore it.
+        - name: home assistant
+          group: home
+          enabled: false
+          url: https://homeassistant.${SECRET_DOMAIN}
+          interval: 1m
+          # No certificate check: through the tunnel this presents Cloudflare's
+          # edge certificate, not one we issue.
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
+        - name: zigbee2mqtt
+          group: home
+          enabled: false
+          url: https://z2m.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
         - name: zigbee device plugin
           group: home
           # Worth watching in its own right rather than waiting for
