@@ -69,8 +69,6 @@ spec:
   sourcePVC: zigbee2mqtt-data
   trigger:
     schedule: "10 2 * * *"
-    # TEMPORARY: verifying that a sync actually populates the repository.
-    manual: verify-2026-08-14
   restic:
     repository: zigbee2mqtt-data-restic
     copyMethod: Direct
