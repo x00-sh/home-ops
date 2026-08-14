@@ -1,0 +1,23 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: home-automation-volume
+spec:
+  interval: 1h
+  path: ./kubernetes/apps/home-automation/home-automation-volume/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: home-automation
+  # Must stay false, for the same reason as media-volume: openebs-hostpath is
+  # WaitForFirstConsumer, so these PVCs stay Pending until a pod mounts them.
+  # With wait: true this Kustomization never goes Ready and every app that
+  # depends on it blocks forever.
+  wait: false

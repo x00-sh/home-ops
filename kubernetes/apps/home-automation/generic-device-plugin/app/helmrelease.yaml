@@ -1,0 +1,89 @@
+---
+# Advertises the Zigbee coordinator to the scheduler as an allocatable
+# resource, so Zigbee2MQTT can ask for it with `resources.limits` instead of
+# running privileged with the host's whole device tree bind-mounted in.
+#
+# This DaemonSet is the only thing here that needs privileged and hostPath
+# /dev. Everything downstream of it stays unprivileged and non-root, which is
+# the entire point of using a device plugin rather than the hostPath shortcut.
+#
+# Until the dongle is physically plugged into the NUC and passed through to
+# this VM, the plugin advertises ZERO devices. That is expected, not a fault —
+# it means any pod requesting the resource stays Pending rather than starting
+# blind.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: generic-device-plugin
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: generic-device-plugin
+  interval: 1h
+  values:
+    controllers:
+      generic-device-plugin:
+        type: daemonset
+        containers:
+          app:
+            image:
+              repository: ghcr.io/squat/generic-device-plugin
+              tag: 0.2.0
+            args:
+              # Pinned deliberately. Upstream changed the default domain from
+              # squat.ai to devic.es, so leaving this implicit means a future
+              # image bump silently renames the resource and every pod that
+              # requests it becomes unschedulable.
+              - --domain=squat.ai
+              - --listen=:8080
+              - --device
+              # Referenced by its by-id path, never /dev/ttyUSB0 — the kernel
+              # name renumbers across reboots and across any other USB serial
+              # device being plugged in.
+              #
+              # mountPath renames it to /dev/zigbee inside the container, so
+              # Zigbee2MQTT's serial port setting says nothing about which
+              # dongle or which host it is running on.
+              - |
+                name: zigbee
+                groups:
+                  - paths:
+                      - path: /dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_5ac79cd96799ec11855c03c944d80d13-if00-port0
+                        mountPath: /dev/zigbee
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      # Losing this plugin means Zigbee2MQTT cannot be scheduled at all, so it
+      # must not be the thing evicted to make room for something else.
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+    service:
+      app:
+        controller: generic-device-plugin
+        ports:
+          http:
+            port: 8080
+    persistence:
+      # Where kubelet listens for device plugin registrations.
+      device-plugins:
+        type: hostPath
+        hostPath: /var/lib/kubelet/device-plugins
+        globalMounts:
+          - path: /var/lib/kubelet/device-plugins
+      # The whole tree, not just the dongle: the plugin discovers devices by
+      # scanning, so it has to see them appear and disappear.
+      dev:
+        type: hostPath
+        hostPath: /dev
+        globalMounts:
+          - path: /dev

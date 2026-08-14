@@ -1,0 +1,50 @@
+---
+# Frigate's recordings, which Home Assistant reads and serves through its media
+# browser. Frigate itself writes here from its LXC over its own NFS mount; the
+# cluster only reads.
+#
+# A subdirectory of the media export rather than the whole thing, because that
+# is all HA needs — /opt/media/cameras is bind-mounted to /config/cameras under
+# docker today, and this reproduces exactly that path.
+#
+# Its own PV rather than reusing media-volume's: PVCs are namespaced, and the
+# media namespace's claim cannot be mounted from here.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: cameras-nfs
+spec:
+  capacity:
+    storage: 11Ti
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.0
+    - hard
+    - noatime
+    - rsize=131072
+    - wsize=131072
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: "10.0.0.20#volume1/media/cameras#cameras-nfs"
+    volumeAttributes:
+      server: "10.0.0.20"
+      share: /volume1/media/cameras
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cameras
+  labels:
+    # Same reasoning as the media claim: this is a permanently near-full
+    # recording share, and the generic KubePersistentVolumeFillingUp alert on
+    # it would fire forever and be ignored forever.
+    excluded-from-alerts: "true"
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: ""
+  volumeName: cameras-nfs
+  resources:
+    requests:
+      storage: 11Ti

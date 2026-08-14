@@ -1,0 +1,136 @@
+---
+# The MQTT broker. Named `mqtt`, not `mosquitto`, and that is load-bearing:
+# both clients address the broker by the bare hostname `mqtt` today — Home
+# Assistant in a .storage config entry, Zigbee2MQTT as `mqtt://mqtt` — because
+# that was the docker-compose service name. A Kubernetes Service called `mqtt`
+# in the same namespace resolves identically, so neither client needs
+# reconfiguring at cutover. The same accident made Bazarr's migration free.
+#
+# The broker keeps effectively no state: the docker install's data/ directory
+# is empty despite `persistence true`, because nothing here uses retained
+# messages or persistent sessions in any volume worth preserving. The PVC
+# exists so that changing that later does not need a new volume.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mqtt
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: mqtt
+  interval: 1h
+  values:
+    controllers:
+      mqtt:
+        replicas: 1
+        type: deployment
+        strategy: Recreate
+        initContainers:
+          # mosquitto reads a bcrypt password file, not env vars, so the
+          # credential has to become a file somewhere. Generating it at startup
+          # into an emptyDir keeps the hash out of git and out of any
+          # long-lived volume, and means rotating the 1Password item is a pod
+          # restart rather than an edit.
+          init-passwd:
+            image:
+              repository: docker.io/library/eclipse-mosquitto
+              tag: 2.1.2
+            command:
+              - sh
+              - -c
+              # 0077 so the file is not group- or world-readable; mosquitto
+              # refuses to start on a permissive password file.
+              - >-
+                umask 0077 &&
+                mosquitto_passwd -c -b /mosquitto/passwd/passwd
+                "$MQTT_USERNAME" "$MQTT_PASSWORD"
+            envFrom:
+              - secretRef:
+                  name: mqtt-secret
+        containers:
+          app:
+            image:
+              repository: docker.io/library/eclipse-mosquitto
+              # Pinned to what docker runs today. The compose file uses an
+              # untagged image, so watchtower has been floating it.
+              tag: 2.1.2
+            env:
+              TZ: Europe/Copenhagen
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 1883
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 1883
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1883
+        runAsGroup: 1883
+        fsGroup: 1883
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: mqtt
+        # Frigate stays in its LXC at 10.0.0.205 and reaches the broker over
+        # the LAN, so this needs a real address rather than a ClusterIP.
+        # In-cluster clients ignore the LoadBalancer and use the ClusterIP.
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "10.0.0.54"
+        ports:
+          mqtt:
+            port: 1883
+            protocol: TCP
+    configMaps:
+      config:
+        data:
+          mosquitto.conf: |
+            listener 1883
+            allow_anonymous false
+            password_file /mosquitto/passwd/passwd
+            persistence true
+            persistence_location /mosquitto/data/
+            # stdout rather than the docker install's log file, so Alloy ships
+            # broker logs to Loki like everything else in the cluster.
+            log_dest stdout
+    persistence:
+      config-file:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /mosquitto/config/mosquitto.conf
+            subPath: mosquitto.conf
+      # Written by the init container, read by mosquitto. emptyDir so the
+      # generated hash never outlives the pod.
+      passwd:
+        type: emptyDir
+        advancedMounts:
+          mqtt:
+            init-passwd:
+              - path: /mosquitto/passwd
+            app:
+              - path: /mosquitto/passwd
+      data:
+        existingClaim: mqtt-data
+        advancedMounts:
+          mqtt:
+            app:
+              - path: /mosquitto/data

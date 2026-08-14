@@ -1,0 +1,47 @@
+---
+# Config volumes for the home-automation namespace, declared here rather than
+# by each app's HelmRelease so the data outlives any release — the same reason
+# media-volume exists.
+#
+# openebs-hostpath has ALLOWVOLUMEEXPANSION false: none of these can be grown
+# later. Growing one means restoring its Volsync snapshot into a bigger PVC, so
+# they are sized with room rather than to fit.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mqtt-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Zigbee2MQTT's whole data directory: database.db (the device registry),
+# coordinator_backup.json (the only off-dongle copy of the network key),
+# configuration.yaml and state.json. Small — the docker directory is 81 MB and
+# 80 MB of that is logs, which are not migrated.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zigbee2mqtt-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 5Gi
+---
+# 1 GB today, of which 850 MB is the recorder database at its default 10-day
+# retention. 20Gi leaves room for retention changes and HACS growth without
+# ever needing an expansion this storage class cannot do.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: home-assistant-config
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 20Gi

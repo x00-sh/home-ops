@@ -179,6 +179,28 @@ spec:
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
 
+        # --- home automation. These are the ones that matter at 2am: when
+        # this group goes red the lights stop working. ---
+        - name: mqtt
+          group: home
+          # Every MQTT client in the house depends on this one broker — Home
+          # Assistant, Zigbee2MQTT and Frigate — so it fails wider than
+          # anything else in the namespace.
+          url: "tcp://mqtt.home-automation.svc.cluster.local:1883"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: zigbee device plugin
+          group: home
+          # Worth watching in its own right rather than waiting for
+          # Zigbee2MQTT to notice: if this DaemonSet is down the Zigbee
+          # resource stops being advertised, and Zigbee2MQTT only goes red
+          # once something evicts or restarts its pod.
+          url: "tcp://generic-device-plugin.home-automation.svc.cluster.local:8080"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+
         # --- infrastructure outside the cluster. Reachability only: these say
         # whether the box answers, not whether it is healthy. ---
         - name: nas (nfs)
