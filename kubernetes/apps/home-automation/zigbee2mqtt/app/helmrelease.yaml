@@ -72,11 +72,23 @@ spec:
                 # scheduler place this pod only where the dongle exists.
                 squat.ai/zigbee: 1
                 memory: 512Mi
-            # No securityContext on purpose. The koenkk image ignores
-            # PUID/PGID and runs as root, which is what it does under docker
-            # today and what the migrated data is owned by. Running it
-            # unprivileged is worth doing, but not in the same change as a
-            # cutover that takes the lights out.
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+    defaultPodOptions:
+      # The koenkk image sets no USER and would otherwise run as root, which is
+      # what it does under docker today. It does not need to: the device plugin
+      # hands over /dev/zigbee as an allocated device, and containerd's
+      # device_ownership_from_security_context (talos/all/50-files.yaml) chowns
+      # that node to the container's uid. So the one thing root was buying —
+      # access to the serial port — is provided without it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: zigbee2mqtt

@@ -13,12 +13,13 @@
 # database that is not good enough on its own, which is what sqlite-snapshot.yaml
 # is for — it leaves a consistent .bak beside the live file for these to copy.
 #
-# moverSecurityContext runs as ROOT, unlike the media namespace's movers which
-# run as 1000. That is not carelessness: Home Assistant writes .storage/auth
-# and .ssh/ with no world-read bit, and a mover running as 1000 would quietly
-# produce a backup missing every user account and refresh token. The NAS squashes
-# root to nobody on write, which is fine — restic owns the whole repository
-# subtree either way.
+# The movers run as 1000, matching the uid both applications now run as. This
+# only works because neither container runs as root: under docker, Home
+# Assistant wrote .storage/auth root-owned and 0600, and a mover running as
+# 1000 would have quietly produced a backup missing every user account and
+# refresh token. Running the applications unprivileged removed that problem
+# rather than working around it — so if either is ever reverted to root, these
+# must go back to root with it, or the backups silently lose that file.
 #
 # Schedules avoid 01:00-01:50, which the media namespace occupies; this node has
 # one disk to give.
@@ -49,9 +50,9 @@ spec:
     cacheStorageClassName: openebs-hostpath
     cacheAccessModes: ["ReadWriteOnce"]
     moverSecurityContext:
-      runAsUser: 0
-      runAsGroup: 0
-      fsGroup: 0
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
     # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
     # in each secret points at a subdirectory of it.
     moverVolumes:
@@ -68,6 +69,8 @@ spec:
   sourcePVC: zigbee2mqtt-data
   trigger:
     schedule: "10 2 * * *"
+    # TEMPORARY: verifying that a sync actually populates the repository.
+    manual: verify-2026-08-14
   restic:
     repository: zigbee2mqtt-data-restic
     copyMethod: Direct
@@ -83,9 +86,9 @@ spec:
     cacheStorageClassName: openebs-hostpath
     cacheAccessModes: ["ReadWriteOnce"]
     moverSecurityContext:
-      runAsUser: 0
-      runAsGroup: 0
-      fsGroup: 0
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
     moverVolumes:
       - mountPath: repo
         volumeSource:

@@ -37,11 +37,12 @@ spec:
         spec:
           restartPolicy: OnFailure
           securityContext:
-            # Home Assistant runs as root and its config tree is a mix of
-            # root-owned and 1000-owned files with some modes as tight as 0600.
-            # Root reads all of it, and the 0644 snapshot it writes stays
-            # readable by anything that later needs it.
-            runAsUser: 0
+            # Same uid Home Assistant runs as, so this can read its database
+            # and write the snapshot beside it without any elevation.
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
           containers:
             - name: snapshot
               # Official image, and its bundled sqlite3 module exposes the

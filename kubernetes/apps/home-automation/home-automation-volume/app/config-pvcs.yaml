@@ -45,3 +45,17 @@ spec:
   resources:
     requests:
       storage: 20Gi
+---
+# The Python virtualenv Home Assistant builds for custom-integration
+# dependencies, kept off the config volume so it is not carried in every
+# backup. Regenerable: deleting it costs one slow startup.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: home-assistant-cache
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 5Gi

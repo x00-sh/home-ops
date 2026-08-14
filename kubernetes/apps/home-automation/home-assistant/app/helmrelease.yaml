@@ -26,17 +26,26 @@ spec:
         containers:
           app:
             image:
-              # The official image, not the home-operations rebuild. The latter
-              # is nicer — non-root, read-only rootfs — but it relocates Python
-              # dependencies from /config/deps into a /config/.venv and runs as
-              # uid 1000, so adopting it means re-owning the whole config tree
-              # during the cutover. Worth doing later, on a calm afternoon.
-              repository: ghcr.io/home-assistant/home-assistant
+              # The home-operations rebuild, NOT ghcr.io/home-assistant/home-assistant.
+              # The official image runs as root and has no non-root mode; this
+              # one defaults to nobody:nogroup and keeps Python dependencies in
+              # a venv under /config rather than needing a writable site-packages.
+              #
+              # This is the only workload in the namespace reachable from the
+              # internet, so it is the one place where running as root is least
+              # defensible. Re-owning the config tree costs nothing here because
+              # the migration seeds a brand new volume anyway.
+              repository: ghcr.io/home-operations/home-assistant
               # Pinned to what docker runs today; the compose file floats
               # :stable. A Home Assistant config migrates forward, not back.
               tag: 2026.8.1
             env:
               TZ: Europe/Copenhagen
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
             probes:
               liveness:
                 enabled: true
@@ -66,9 +75,17 @@ spec:
                 # Uses ~825 MiB under docker today. 4Gi is headroom for a
                 # recorder purge or a database repack, both of which spike.
                 memory: 4Gi
-            # No securityContext: the official image runs as root and ignores
-            # PUID/PGID, which is exactly what it does under docker today and
-            # what the migrated config tree is owned by.
+    defaultPodOptions:
+      # uid 1000 specifically, rather than the image's default nobody: the
+      # docker config tree is already owned by 1000, so the seeding copy needs
+      # no ownership rewrite beyond .storage/auth, which is the one root-owned
+      # file in it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: home-assistant
@@ -87,6 +104,19 @@ spec:
       # on purpose — it reproduces the docker bind mount exactly, so every
       # stored path in the config keeps working. Volsync backs up the config
       # PVC only and does not descend into this mount.
+      # The Python virtualenv this image builds for custom-integration
+      # dependencies. Its own volume so it stays out of the config backup —
+      # it is entirely regenerable, and rebuilding it is the correct response
+      # to a dependency problem anyway. Same reasoning as jellyfin-cache.
+      cache:
+        existingClaim: home-assistant-cache
+        globalMounts:
+          - path: /config/.venv
+      # readOnlyRootFilesystem needs somewhere to write scratch files.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
       cameras:
         existingClaim: cameras
         globalMounts:
