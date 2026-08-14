@@ -1,0 +1,93 @@
+---
+# Nightly restic backups of the home-automation config volumes.
+#
+# WHY THESE MATTER MORE THAN THE MEDIA ONES: a lost *arr database costs an
+# afternoon of re-importing. A lost Zigbee2MQTT database costs re-pairing every
+# device in the house by hand, and a lost Home Assistant .storage costs every
+# automation, dashboard, user account and the 43 integration config entries —
+# none of which exist anywhere else, because Home Assistant's real
+# configuration is not the YAML, it is .storage.
+#
+# copyMethod is Direct because neither storage class here supports CSI
+# snapshots, so the mover reads the live volume. For Home Assistant's recorder
+# database that is not good enough on its own, which is what sqlite-snapshot.yaml
+# is for — it leaves a consistent .bak beside the live file for these to copy.
+#
+# moverSecurityContext runs as ROOT, unlike the media namespace's movers which
+# run as 1000. That is not carelessness: Home Assistant writes .storage/auth
+# and .ssh/ with no world-read bit, and a mover running as 1000 would quietly
+# produce a backup missing every user account and refresh token. The NAS squashes
+# root to nobody on write, which is fine — restic owns the whole repository
+# subtree either way.
+#
+# Schedules avoid 01:00-01:50, which the media namespace occupies; this node has
+# one disk to give.
+#
+# mqtt-data deliberately has no backup: the broker's data directory is empty,
+# its config lives in this repository and its password comes from 1Password, so
+# there is nothing there that a restore would bring back.
+#
+# The specs are written out per application rather than shared through a YAML
+# anchor, because anchors do not cross document boundaries.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: home-assistant-config
+spec:
+  sourcePVC: home-assistant-config
+  trigger:
+    schedule: "0 2 * * *"
+  restic:
+    repository: home-assistant-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      fsGroup: 0
+    # The repository, mounted at /mnt/repo in the mover pod; RESTIC_REPOSITORY
+    # in each secret points at a subdirectory of it.
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: home-automation-config-restic
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: zigbee2mqtt-data
+spec:
+  sourcePVC: zigbee2mqtt-data
+  trigger:
+    schedule: "10 2 * * *"
+  restic:
+    repository: zigbee2mqtt-data-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    # Kept longer than the others. This is the volume whose loss cannot be
+    # worked around, and it is measured in kilobytes — 12 monthlies cost
+    # nothing and buy a year of "when did that device disappear".
+    retain:
+      daily: 14
+      weekly: 8
+      monthly: 12
+    cacheCapacity: 1Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    moverSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      fsGroup: 0
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: home-automation-config-restic
