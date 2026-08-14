@@ -20,4 +20,4 @@ nodes:
       macAddr: "bc:24:11:20:d4:d9"
       mtu: 1500
       encryptDisk: false
-      kernelModules: []
+      kernelModules: [cp210x]
