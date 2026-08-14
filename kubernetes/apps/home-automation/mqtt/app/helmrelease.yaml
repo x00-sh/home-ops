@@ -34,7 +34,7 @@ spec:
           init-passwd:
             image:
               repository: docker.io/library/eclipse-mosquitto
-              tag: 2.1.2
+              tag: 2.1.2-alpine
             command:
               - sh
               - -c
@@ -53,7 +53,12 @@ spec:
               repository: docker.io/library/eclipse-mosquitto
               # Pinned to what docker runs today. The compose file uses an
               # untagged image, so watchtower has been floating it.
-              tag: 2.1.2
+              #
+              # The -alpine suffix is not optional: upstream publishes the 2.1
+              # line ONLY as `2.1.x-alpine`. A plain `2.1.2` tag does not
+              # exist, and asking for one is an ImagePullBackOff. `latest` and
+              # `alpine` are the same digest as this.
+              tag: 2.1.2-alpine
             env:
               TZ: Europe/Copenhagen
             probes:
