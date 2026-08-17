@@ -43,6 +43,8 @@ spec:
                 # read-only.
                 - name: CUSTOM_REPO_ROOT
                   value: /app/repos
+                - name: DRY_RUN
+                  value: "true"
               volumeMounts:
                 - name: config
                   mountPath: /app/config/config.yml

@@ -313,19 +313,70 @@ data:
               - name: "Any"
                 score: 0
 
-    # Radarr gets CUSTOM FORMATS ONLY.
+    # Radarr: custom formats, plus upgrades enabled at the EXISTING cutoff.
     #
-    # No quality_definition: the movie library is 4K-first and deliberately
-    # uncapped. No quality_profiles either, and that omission is load-bearing —
-    # Configarr can assign scores to a profile that exists only on the server,
-    # so declaring the profile is unnecessary, and declaring it is the single
-    # most damaging thing this config could do. With a 1080p cutoff Radarr would
-    # start replacing 77 4K films with 1080p; with a 4K cutoff it would pull
-    # ~1.3 TB against ~801 GB free.
+    # Still NO quality_definition — the movie library is 4K-first and
+    # deliberately uncapped.
+    #
+    # The owner enabled upgrades on 2026-08-17, which supersedes the original
+    # "custom formats only" rule. What makes that safe is the cutoff, not the
+    # flag: it stays at Bluray-480p, so the 54 Remux-2160p films and everything
+    # else above 480p already satisfy it and are never re-grabbed. Only 3 films
+    # sit below it, and all three have no file at all.
+    #
+    # DO NOT raise this cutoff without recomputing the disk cost. At
+    # Bluray-2160p it is roughly +743 GB, and at Remux-2160p roughly +2.4 TB
+    # against ~825 GB free — the latter fills the disk and fails partway.
+    #
+    # cutoffFormatScore is deliberately left at the profile's existing 0 and is
+    # NOT set to TRaSH's 10000. That value is unreachable here (the maximum is
+    # about 2900), so it would mark every one of the 120 films as never
+    # finished and turn this into a whole-library re-grab.
     radarr:
       movies:
         base_url: http://radarr.media.svc.cluster.local:7878
         api_key: !secret RADARR_API_KEY
+
+        quality_profiles:
+          - name: "Any"
+            upgrade:
+              allowed: true
+              until_quality: "Bluray-480p"
+              until_score: 0
+            # Unchanged. Unwanted Language scores -10000 and is blocked by
+            # this floor; the six TRaSH unwanted formats score -10000 too.
+            min_format_score: -1000
+            # Generated from the live profile, best-first. Required: Configarr
+            # silently discards any profile with no qualities list.
+            qualities:
+              - name: "Remux-2160p"
+              - name: "Bluray-2160p"
+              - name: "WEB 2160p"
+                qualities:
+                  - "WEBDL-2160p"
+                  - "WEBRip-2160p"
+              - name: "HDTV-2160p"
+              - name: "Remux-1080p"
+              - name: "Bluray-1080p"
+              - name: "WEB 1080p"
+                qualities:
+                  - "WEBDL-1080p"
+                  - "WEBRip-1080p"
+              - name: "HDTV-1080p"
+              - name: "Bluray-720p"
+              - name: "WEB 720p"
+                qualities:
+                  - "WEBDL-720p"
+                  - "WEBRip-720p"
+              - name: "HDTV-720p"
+              - name: "Bluray-576p"
+              - name: "Bluray-480p"
+              - name: "WEB 480p"
+                qualities:
+                  - "WEBDL-480p"
+                  - "WEBRip-480p"
+              - name: "SDTV"
+              - name: "REGIONAL"
 
         custom_formats:
           - trash_ids:
