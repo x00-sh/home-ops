@@ -1,0 +1,47 @@
+---
+# Monitoring for Configarr.
+#
+# Repo rule 5 says every new app gets a Gatus check in the same change. Neither
+# Gatus shape the rule names fits here: Configarr is a CronJob with no HTTP
+# endpoint and no service port, so there is nothing to probe. Inventing an
+# endpoint purely to satisfy the convention would be monitoring theatre.
+#
+# The convention is met a different way instead. Phase 4.5 deployed
+# kube-prometheus-stack including kube-state-metrics, so the job's own outcome
+# is already a metric. These rules route to the same ntfy path as everything
+# else via the existing Alertmanager configuration.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: configarr
+spec:
+  groups:
+    - name: configarr
+      rules:
+        - alert: ConfigarrJobFailed
+          expr: kube_job_status_failed{namespace="media", job_name=~"configarr-.*"} > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Configarr sync job failed
+            description: >-
+              The Configarr CronJob in the media namespace failed. Sonarr and
+              Radarr keep whatever configuration they already had, so nothing is
+              broken — but the declared config in git and the live config have
+              started to diverge. Check the job log.
+
+        # The failure that matters more than a failed run: no run at all. A
+        # suspended CronJob, a missing image or a bad schedule produces silence,
+        # and silence looks identical to everything being fine.
+        - alert: ConfigarrNotSucceeding
+          expr: >-
+            time() - kube_cronjob_status_last_successful_time{namespace="media", cronjob="configarr"} > 172800
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Configarr has not completed successfully in 48 hours
+            description: >-
+              Configarr runs daily. Two days without a successful run means it
+              is not running at all rather than failing loudly.

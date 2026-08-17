@@ -1,0 +1,27 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: configarr
+spec:
+  # Configarr configures Sonarr and Radarr, so it is useless if either is down
+  # — and a failed run against a half-started app is a confusing way to find
+  # that out.
+  dependsOn:
+    - name: sonarr
+      namespace: media
+    - name: radarr
+      namespace: media
+  interval: 1h
+  path: ./kubernetes/apps/media/configarr/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: media
+  wait: true

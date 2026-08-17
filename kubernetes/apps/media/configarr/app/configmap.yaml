@@ -1,0 +1,259 @@
+---
+# Configarr's declarative configuration for Sonarr and Radarr.
+#
+# Read kubernetes/apps/media/configarr/app/cronjob.yaml for how this is
+# consumed, and /opt/k8s-migration/configarr-design.md for why each choice is
+# what it is. The invariants in section 4 of that document are not style
+# preferences — several obvious-looking defaults actively undo deliberate work.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configarr-config
+data:
+  config.yml: |
+    trashGuideUrl: https://github.com/TRaSH-Guides/Guides
+    recyclarrConfigUrl: https://github.com/recyclarr/config-templates
+
+    # The four custom formats that do not exist in TRaSH. Being able to declare
+    # these alongside TRaSH ones is the entire reason this is Configarr and not
+    # Recyclarr.
+    #
+    # Scores live in trash_scores.default and are applied wherever the format is
+    # assigned. They match what is live in both apps today: +600 / +500 / -200 /
+    # -10000.
+    customFormatDefinitions:
+      # Danish audio, but only when Danish is the title's ORIGINAL language.
+      # The two specifications are an AND: a Danish dub of an English-language
+      # film matches the first but not the second, so it does not outrank the
+      # English original. The specification names differ only so the pairing
+      # cannot be collapsed by anything keying on name.
+      - trash_id: local-lang-danish-original
+        name: "Language: Danish (Original)"
+        trash_description: "Danish audio where Danish is the original language"
+        trash_scores:
+          default: 600
+        includeCustomFormatWhenRenaming: false
+        specifications:
+          - name: Danish
+            implementation: LanguageSpecification
+            negate: false
+            required: true
+            fields:
+              value: 6
+              exceptLanguage: false
+          - name: Original
+            implementation: LanguageSpecification
+            negate: false
+            required: true
+            fields:
+              value: -2
+              exceptLanguage: false
+
+      - trash_id: local-lang-english
+        name: "Language: English"
+        trash_description: "English audio"
+        trash_scores:
+          default: 500
+        includeCustomFormatWhenRenaming: false
+        specifications:
+          - name: English
+            implementation: LanguageSpecification
+            negate: false
+            required: true
+            fields:
+              value: 1
+              exceptLanguage: false
+
+      - trash_id: local-dual-multi-audio
+        name: "Dual / Multi Audio"
+        trash_description: "Release title advertises dual or multi audio"
+        trash_scores:
+          default: -200
+        includeCustomFormatWhenRenaming: false
+        specifications:
+          - name: Release Title
+            implementation: ReleaseTitleSpecification
+            negate: false
+            required: true
+            fields:
+              value: "\\b(dual|multi)\\b"
+
+      # The hard block. Scores -10000 against a minFormatScore floor of -1000,
+      # so anything matching is rejected outright rather than merely ranked low.
+      # Raising that floor above -10000 silently disables language filtering.
+      - trash_id: local-unwanted-language
+        name: "Unwanted Language"
+        trash_description: "Neither English nor Danish, and not dual/multi"
+        trash_scores:
+          default: -10000
+        includeCustomFormatWhenRenaming: false
+        specifications:
+          - name: Not English
+            implementation: LanguageSpecification
+            negate: true
+            required: true
+            fields:
+              value: 1
+              exceptLanguage: false
+          - name: Not Danish
+            implementation: LanguageSpecification
+            negate: true
+            required: true
+            fields:
+              value: 6
+              exceptLanguage: false
+          - name: Not Dual or Multi
+            implementation: ReleaseTitleSpecification
+            negate: true
+            required: true
+            fields:
+              value: "\\b(dual|multi)\\b"
+
+    sonarr:
+      series:
+        base_url: http://sonarr.media.svc.cluster.local:8989
+        api_key: !secret SONARR_API_KEY
+
+        # Explicit absolute sizes for all 22 qualities — NEVER `type: series`.
+        # TRaSH's definitions are quality-first and permit remux, which is
+        # exactly the hole that turned one TNG season into 214 GB. 44 MB/min is
+        # 2.0 GB for a 45-minute episode. minSize values are carried over
+        # unchanged: they are what makes the 35-44 window exclude remux and
+        # 2160p in practice rather than merely discourage it.
+        quality_definition:
+          qualities:
+          - quality: "Unknown"
+            min: 1
+            preferred: 42.0
+            max: 44.0
+          - quality: "SDTV"
+            min: 2
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBRip-480p"
+            min: 2
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBDL-480p"
+            min: 2
+            preferred: 42.0
+            max: 44.0
+          - quality: "DVD"
+            min: 2
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-480p"
+            min: 2
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-576p"
+            min: 2
+            preferred: 42.0
+            max: 44.0
+          - quality: "HDTV-720p"
+            min: 3
+            preferred: 42.0
+            max: 44.0
+          - quality: "HDTV-1080p"
+            min: 4
+            preferred: 42.0
+            max: 44.0
+          - quality: "Raw-HD"
+            min: 4
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBRip-720p"
+            min: 3
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBDL-720p"
+            min: 3
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-720p"
+            min: 4
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBRip-1080p"
+            min: 4
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBDL-1080p"
+            min: 4
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-1080p"
+            min: 4
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-1080p Remux"
+            min: 35
+            preferred: 42.0
+            max: 44.0
+          - quality: "HDTV-2160p"
+            min: 35
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBRip-2160p"
+            min: 35
+            preferred: 42.0
+            max: 44.0
+          - quality: "WEBDL-2160p"
+            min: 35
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-2160p"
+            min: 35
+            preferred: 42.0
+            max: 44.0
+          - quality: "Bluray-2160p Remux"
+            min: 35
+            preferred: 42.0
+            max: 44.0
+
+        # The structural fix. With upgradeAllowed false and cutoff SDTV, Sonarr
+        # treats every episode as finished: it will not search for upgrades and
+        # refuses to import a better file even when one is force-fed. That is
+        # why both manual campaigns needed ManualImport + RescanSeries per file.
+        #
+        # `qualities:` is deliberately absent — listing it would rewrite which
+        # qualities the profile allows, and the current allow-list is correct.
+        quality_profiles:
+          - name: "Any"
+            upgrade:
+              allowed: true
+              until_quality: WEBDL-1080p
+              until_score: 10000
+            min_format_score: -1000
+
+        custom_formats:
+          - trash_ids:
+              - local-lang-danish-original
+              - local-lang-english
+              - local-dual-multi-audio
+              - local-unwanted-language
+            assign_scores_to:
+              - name: "Any"
+
+    # Radarr gets CUSTOM FORMATS ONLY.
+    #
+    # No quality_definition: the movie library is 4K-first and deliberately
+    # uncapped. No quality_profiles either, and that omission is load-bearing —
+    # Configarr can assign scores to a profile that exists only on the server,
+    # so declaring the profile is unnecessary, and declaring it is the single
+    # most damaging thing this config could do. With a 1080p cutoff Radarr would
+    # start replacing 77 4K films with 1080p; with a 4K cutoff it would pull
+    # ~1.3 TB against ~801 GB free.
+    radarr:
+      movies:
+        base_url: http://radarr.media.svc.cluster.local:7878
+        api_key: !secret RADARR_API_KEY
+
+        custom_formats:
+          - trash_ids:
+              - local-lang-danish-original
+              - local-lang-english
+              - local-dual-multi-audio
+              - local-unwanted-language
+            assign_scores_to:
+              - name: "Any"

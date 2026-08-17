@@ -1,0 +1,86 @@
+---
+# Syncs the declarative configuration in configarr-config into Sonarr and
+# Radarr once a day. Configarr is idempotent: a run with nothing to change is a
+# no-op, so the schedule is about catching drift rather than applying anything.
+#
+# DRY RUN IS ON. The first deployment must not write. Read the pod log, check
+# it against section 5 of /opt/k8s-migration/configarr-design.md, and only then
+# remove the DRY_RUN env var. The log is the review gate — there is no other
+# opportunity to see what this will do before it does it.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: configarr
+spec:
+  schedule: "30 4 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+            - name: configarr
+              image: ghcr.io/raydak-labs/configarr:1.30.2
+              env:
+                - name: TZ
+                  value: Europe/Amsterdam
+                - name: CONFIG_LOCATION
+                  value: /app/config/config.yml
+                - name: SECRETS_LOCATION
+                  value: /app/config/secrets.yml
+                # Where the TRaSH guides repo is cloned at runtime. Must be
+                # writable, and must NOT be the config mount, which is
+                # read-only.
+                - name: CUSTOM_REPO_ROOT
+                  value: /app/repos
+                # Remove this to arm the sync. Keep it until the log has been
+                # reviewed.
+                - name: DRY_RUN
+                  value: "true"
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config/config.yml
+                  subPath: config.yml
+                  readOnly: true
+                - name: secrets
+                  mountPath: /app/config/secrets.yml
+                  subPath: secrets.yml
+                  readOnly: true
+                - name: repos
+                  mountPath: /app/repos
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: config
+              configMap:
+                name: configarr-config
+            - name: secrets
+              secret:
+                secretName: configarr-secrets
+            # The cloned guides are a cache, not state: an emptyDir means every
+            # run starts from a clean checkout of upstream.
+            - name: repos
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
