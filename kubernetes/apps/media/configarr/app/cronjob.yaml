@@ -3,10 +3,10 @@
 # Radarr once a day. Configarr is idempotent: a run with nothing to change is a
 # no-op, so the schedule is about catching drift rather than applying anything.
 #
-# DRY RUN IS ON. The first deployment must not write. Read the pod log, check
-# it against section 5 of /opt/k8s-migration/configarr-design.md, and only then
-# remove the DRY_RUN env var. The log is the review gate — there is no other
-# opportunity to see what this will do before it does it.
+# Dry run was reviewed and removed on 2026-08-17. To put it back, add
+# `DRY_RUN: "true"` to env — worth doing before any change to the config that
+# touches quality definitions or profiles, since the log is the only chance to
+# see what a sync will do before it does it.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -43,10 +43,6 @@ spec:
                 # read-only.
                 - name: CUSTOM_REPO_ROOT
                   value: /app/repos
-                # Remove this to arm the sync. Keep it until the log has been
-                # reviewed.
-                - name: DRY_RUN
-                  value: "true"
               volumeMounts:
                 - name: config
                   mountPath: /app/config/config.yml
