@@ -88,6 +88,15 @@ spec:
           interval: 1m
           conditions: ["[STATUS] < 400"]
           alerts: [{ type: ntfy }]
+        - name: prowlarr
+          group: media
+          # Owns the indexer list for both Sonarr and Radarr, so when this is
+          # down nothing can be searched for — even though both apps stay up
+          # and look healthy.
+          url: https://prowlarr.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
 
         # --- published, so these also prove the Cloudflare tunnel end to end:
         # the request leaves the network, resolves publicly and comes back in ---

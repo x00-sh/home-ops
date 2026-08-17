@@ -81,3 +81,16 @@ spec:
   resources:
     requests:
       storage: 2Gi
+---
+# Prowlarr holds only its own database and the indexer definitions it manages;
+# no media, no cache. Small.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prowlarr-config
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 2Gi

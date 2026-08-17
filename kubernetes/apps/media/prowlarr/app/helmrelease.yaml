@@ -1,0 +1,91 @@
+---
+# Indexer management for Sonarr and Radarr.
+#
+# Today each app holds its own hand-made NZBgeek entry, so every indexer change
+# is made twice and kept in sync by hand. Prowlarr owns the list instead and
+# pushes it to both.
+#
+# It does NOT mount the media volume: Prowlarr only ever talks to indexers and
+# to the *arr APIs, and never touches a media file.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prowlarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: prowlarr
+  interval: 1h
+  values:
+    controllers:
+      prowlarr:
+        replicas: 1
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/hotio/prowlarr
+              # Pinned, matching the style used for the other *arr apps. Never
+              # `release` or `latest`: those float, and an indexer definition
+              # schema change arriving unannounced is not something to discover
+              # from a failed search.
+              tag: release-2.5.2.5491
+            env:
+              TZ: Europe/Amsterdam
+              PUID: "1000"
+              PGID: "1000"
+              UMASK: "002"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: 9696
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: 9696
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  failureThreshold: 5
+            resources:
+              requests:
+                cpu: 25m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+    service:
+      app:
+        controller: prowlarr
+        ports:
+          http:
+            port: 9696
+    route:
+      app:
+        # Internal gateway only, and this one is not a style choice: Prowlarr
+        # stores the API key of every indexer it manages. It must never be
+        # reachable from outside the LAN.
+        hostnames:
+          - "prowlarr.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 9696
+    persistence:
+      config:
+        existingClaim: prowlarr-config
+        globalMounts:
+          - path: /config

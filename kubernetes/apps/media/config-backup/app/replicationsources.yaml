@@ -217,3 +217,39 @@ spec:
         volumeSource:
           persistentVolumeClaim:
             claimName: media-config-restic
+---
+# Runs at 00:50, ahead of the 01:00-01:50 block rather than after it: Prowlarr's
+# volume is the smallest here and slotting it in front avoids crowding
+# jellyfin-config, which is the longest sync of the group.
+#
+# Like the other *arr apps, Prowlarr writes its own consistent backup zip into
+# /config/Backups on a schedule, so a torn live copy of its SQLite database is
+# still recoverable from the zip beside it. Keep that internal backup enabled.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: prowlarr-config
+spec:
+  sourcePVC: prowlarr-config
+  trigger:
+    schedule: "50 0 * * *"
+  restic:
+    repository: prowlarr-config-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 1Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: media-config-restic
