@@ -346,6 +346,10 @@ data:
             # Unchanged. Unwanted Language scores -10000 and is blocked by
             # this floor; the six TRaSH unwanted formats score -10000 too.
             min_format_score: -1000
+            # Must be stated. Configarr defaults an unspecified profile
+            # language to "Any", which would quietly relax the profile-level
+            # language filter this library has always run with.
+            language: "Original"
             # Generated from the live profile, best-first. Required: Configarr
             # silently discards any profile with no qualities list.
             qualities:
