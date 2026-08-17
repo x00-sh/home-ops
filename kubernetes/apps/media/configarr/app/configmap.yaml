@@ -222,8 +222,18 @@ data:
           - name: "Any"
             upgrade:
               allowed: true
-              until_quality: WEBDL-1080p
-              until_score: 10000
+              # The GROUP name, not WEBDL-1080p. Sonarr's profile puts
+              # WEBDL-1080p and WEBRip-1080p inside a group called "WEB 1080p",
+              # and a cutoff must name the group. Pointing it at the member
+              # quality does not error — Configarr silently reports the profile
+              # unchanged, which looks exactly like success.
+              until_quality: "WEB 1080p"
+              # Matches the profile's existing cutoffFormatScore of 0, so an
+              # episode is finished once it reaches the quality cutoff. A high
+              # value here would be a trap: the maximum achievable score is
+              # 1100 (Danish 600 + English 500), so anything above that means
+              # nothing ever satisfies the cutoff and Sonarr searches forever.
+              until_score: 0
             min_format_score: -1000
 
         custom_formats:
