@@ -216,8 +216,16 @@ data:
         # refuses to import a better file even when one is force-fed. That is
         # why both manual campaigns needed ManualImport + RescanSeries per file.
         #
-        # `qualities:` is deliberately absent — listing it would rewrite which
-        # qualities the profile allows, and the current allow-list is correct.
+        # `qualities:` is REQUIRED, not optional. Omitting it does not mean
+        # "leave the allow-list alone" — Configarr filters the whole profile out
+        # with a single WARN line and reports it Unchanged, so the upgrade
+        # settings below silently never apply.
+        #
+        # This list was generated from the live profile rather than typed, and
+        # is ordered BEST FIRST: Sonarr's API returns worst-first and Configarr
+        # expects the reverse, so a hand-copied list would invert the ranking.
+        # Only allowed qualities appear here; anything absent becomes
+        # disallowed, which is what the current profile already does.
         quality_profiles:
           - name: "Any"
             upgrade:
@@ -235,6 +243,25 @@ data:
               # nothing ever satisfies the cutoff and Sonarr searches forever.
               until_score: 0
             min_format_score: -1000
+            qualities:
+              - name: "Bluray-1080p"
+              - name: "WEB 1080p"
+                qualities:
+                  - "WEBRip-1080p"
+                  - "WEBDL-1080p"
+              - name: "Bluray-720p"
+              - name: "WEB 720p"
+                qualities:
+                  - "WEBRip-720p"
+                  - "WEBDL-720p"
+              - name: "HDTV-1080p"
+              - name: "HDTV-720p"
+              - name: "DVD"
+              - name: "WEB 480p"
+                qualities:
+                  - "WEBRip-480p"
+                  - "WEBDL-480p"
+              - name: "SDTV"
 
         custom_formats:
           - trash_ids:
