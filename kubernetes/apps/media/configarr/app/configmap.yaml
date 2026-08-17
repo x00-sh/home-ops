@@ -272,6 +272,79 @@ data:
             assign_scores_to:
               - name: "Any"
 
+          # Same six unwanted formats. Radarr's trash_ids differ from Sonarr's
+          # for the identical format — they are per-app, so these cannot be
+          # copied across.
+          - trash_ids:
+              - ed38b889b31be83fda192888e2286d83 # BR-DISK
+              - 90a6f9a284dff5103f6346090e6280c8 # LQ
+              - e204b80c87be9497a8a6eaff48f72905 # LQ (Release Title)
+              - b6832f586342ef70d9c128d40c07b872 # Bad Dual Groups
+              - 7357cf5161efbf8c4d5d0c30b4815ee2 # Obfuscated
+              - 5c44f52a8714fdd79bb4d98e2673be1f # Retags
+            assign_scores_to:
+              - name: "Any"
+
+          - trash_ids:
+              - ed27ebfef2f323e964fb1f61391bcb35 # HD Bluray Tier 01
+              - c20c8647f2746a1f4c4262b0fbbeeeae # HD Bluray Tier 02
+              - c20f169ef63c5f40c2def54abaf4438e # WEB Tier 01
+              - 403816d65392c79236dcb6dd591aeda4 # WEB Tier 02
+              - af94e0fe497124d1f9ce732069ec8c3b # WEB Tier 03
+            assign_scores_to:
+              - name: "Any"
+
+          # Scored 0 here too. Radarr has upgrades off so nothing is re-grabbed
+          # either way, but a -10000 would block x265 on any NEW acquisition.
+          - trash_ids:
+              - dc98083864ea246d05a42df0d05f81cc # x265 (HD)
+            assign_scores_to:
+              - name: "Any"
+                score: 0
+
+          # Unwanted releases, all -10000 by default. That is below the
+          # profile's minFormatScore of -1000, so these are hard blocks at grab
+          # time rather than a ranking nudge — which is the intent.
+          - trash_ids:
+              - 85c61753df5da1fb2aab6f2a47426b09 # BR-DISK
+              - 9c11cd3f07101cdba90a2d81cf0e56b4 # LQ
+              - e2315f990da2e2cbfc9fa5b7a6fcfe48 # LQ (Release Title)
+              - 32b367365729d530ca1c124a0b180c64 # Bad Dual Groups
+              - e1a997ddb54e3ecbfe06341ad323c458 # Obfuscated
+              - 06d66ab109d4d2eddb2794d21526d140 # Retags
+            assign_scores_to:
+              - name: "Any"
+
+          # Release-group tiers. This is the actual quality win: the manual
+          # campaign picked "largest file that still fits the cap", which is a
+          # crude proxy. Tiers pick a good encode within the same size budget.
+          #
+          # These are large positive scores and they do NOT create upgrade
+          # pressure: existing files already score at or above the profile's
+          # cutoffFormatScore of 0, so they stay finished. Tiers only decide
+          # which candidate wins when a grab is actually happening.
+          - trash_ids:
+              - d6819cba26b1a6508138d25fb5e32293 # HD Bluray Tier 01
+              - c2216b7b8aa545dc1ce8388c618f8d57 # HD Bluray Tier 02
+              - e6258996055b9fbab7e9cb2f75819294 # WEB Tier 01
+              - 58790d4e2fdcd9733aa7ae68ba2bb503 # WEB Tier 02
+              - d84935abd3f8556dcd51d4f27e22d0a6 # WEB Tier 03
+            assign_scores_to:
+              - name: "Any"
+
+          # x265 (HD), forced to 0 — NEVER TRaSH's default of -10000.
+          # A 44 MB/min cap pushes hard toward efficient codecs, and much of
+          # this library is x265 (MeGusta, INFINITY, D3FiL3R HEVC, iVy). At
+          # -10000 every one of those releases would fall below the -1000 floor
+          # and be treated as unwanted, blocking the very encodes the cap
+          # selects for. Neutral, not positive: the cap does the selecting and
+          # the tiers do the quality control.
+          - trash_ids:
+              - 47435ece6b99a0b477caf360e79ba0bb # x265 (HD)
+            assign_scores_to:
+              - name: "Any"
+                score: 0
+
     # Radarr gets CUSTOM FORMATS ONLY.
     #
     # No quality_definition: the movie library is 4K-first and deliberately
@@ -294,3 +367,33 @@ data:
               - local-unwanted-language
             assign_scores_to:
               - name: "Any"
+
+          # Same six unwanted formats. Radarr's trash_ids differ from Sonarr's
+          # for the identical format — they are per-app, so these cannot be
+          # copied across.
+          - trash_ids:
+              - ed38b889b31be83fda192888e2286d83 # BR-DISK
+              - 90a6f9a284dff5103f6346090e6280c8 # LQ
+              - e204b80c87be9497a8a6eaff48f72905 # LQ (Release Title)
+              - b6832f586342ef70d9c128d40c07b872 # Bad Dual Groups
+              - 7357cf5161efbf8c4d5d0c30b4815ee2 # Obfuscated
+              - 5c44f52a8714fdd79bb4d98e2673be1f # Retags
+            assign_scores_to:
+              - name: "Any"
+
+          - trash_ids:
+              - ed27ebfef2f323e964fb1f61391bcb35 # HD Bluray Tier 01
+              - c20c8647f2746a1f4c4262b0fbbeeeae # HD Bluray Tier 02
+              - c20f169ef63c5f40c2def54abaf4438e # WEB Tier 01
+              - 403816d65392c79236dcb6dd591aeda4 # WEB Tier 02
+              - af94e0fe497124d1f9ce732069ec8c3b # WEB Tier 03
+            assign_scores_to:
+              - name: "Any"
+
+          # Scored 0 here too. Radarr has upgrades off so nothing is re-grabbed
+          # either way, but a -10000 would block x265 on any NEW acquisition.
+          - trash_ids:
+              - dc98083864ea246d05a42df0d05f81cc # x265 (HD)
+            assign_scores_to:
+              - name: "Any"
+                score: 0

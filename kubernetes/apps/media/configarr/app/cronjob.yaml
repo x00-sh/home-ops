@@ -43,6 +43,10 @@ spec:
                 # read-only.
                 - name: CUSTOM_REPO_ROOT
                   value: /app/repos
+                # Temporarily re-armed as dry run to review the TRaSH custom
+                # format additions before they are applied.
+                - name: DRY_RUN
+                  value: "true"
               volumeMounts:
                 - name: config
                   mountPath: /app/config/config.yml
