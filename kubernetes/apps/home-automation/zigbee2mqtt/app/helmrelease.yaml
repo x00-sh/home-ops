@@ -1,8 +1,9 @@
 ---
-# replicas: 0 until the docker data directory has been copied into
-# zigbee2mqtt-data. Starting empty would form a NEW Zigbee network on the
-# coordinator and orphan all 36 devices — the one outcome in this phase that
-# cannot be undone without re-pairing every device by hand.
+# Migrated and running as of 2026-08-18. The data directory was seeded from
+# the docker install before this went to replicas: 1 — starting empty would
+# have formed a NEW Zigbee network on the coordinator and orphaned all 36
+# devices, the one outcome in this phase that cannot be undone without
+# re-pairing every device by hand.
 #
 # The dongle arrives as an allocated device at /dev/zigbee, courtesy of
 # generic-device-plugin. Nothing here names /dev/ttyUSB0, and nothing here has
@@ -19,7 +20,7 @@ spec:
   values:
     controllers:
       zigbee2mqtt:
-        replicas: 0
+        replicas: 1
         type: deployment
         # Recreate, not RollingUpdate: two Zigbee2MQTT processes must never
         # hold the coordinator at once. Overlapping instances corrupt the
