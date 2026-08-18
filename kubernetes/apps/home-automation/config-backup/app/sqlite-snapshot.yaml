@@ -47,7 +47,7 @@ spec:
             - name: snapshot
               # Official image, and its bundled sqlite3 module exposes the
               # online backup API — no package installs at runtime.
-              image: docker.io/python:3.13-alpine
+              image: docker.io/python:3.14-alpine
               command: ["python3", "-c"]
               args:
                 - |
