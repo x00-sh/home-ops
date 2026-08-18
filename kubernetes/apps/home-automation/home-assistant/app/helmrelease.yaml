@@ -115,6 +115,24 @@ spec:
             # Home Assistant's frontend is almost entirely websockets; without
             # this hint the gateway treats it as plain HTTP/1.1.
             appProtocol: kubernetes.io/ws
+    route:
+      app:
+        # External gateway, published at the same hostname it used on docker.
+        # Staged 2026-08-18 and pushed only once the old homeassistant.x00.sh
+        # entry (and its DNS record) is removed from the portal tunnel —
+        # external-dns runs policy=sync and will not touch a record it does
+        # not already own, so pushing this earlier would leave the hostname
+        # silently still pointing at the dead docker tunnel.
+        hostnames:
+          - "homeassistant.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8123
     persistence:
       config:
         existingClaim: home-assistant-config
