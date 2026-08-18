@@ -39,6 +39,16 @@ spec:
               # the file itself moves across untouched. Zigbee2MQTT maps
               # ZIGBEE2MQTT_CONFIG_<SECTION>_<KEY> onto the config tree.
               ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/zigbee
+              # Required. zigbee-herdsman's adapter auto-detection identifies
+              # the coordinator type by probing USB metadata (vendor/product
+              # info via sysfs), which is not visible here — the pod only has
+              # the single bind-mounted device node, not the rest of /dev or
+              # /sys that the discovery heuristics expect. Without this, the
+              # container fails at startup with "USB adapter discovery error
+              # (No valid USB adapter found)" even though the device itself is
+              # present, healthy and correctly permissioned. Found during the
+              # 2026-08-18 cutover. The Sonoff Plus is a CC2652P — Z-Stack 3.x.
+              ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: zstack
               ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mqtt:1883
             envFrom:
               - secretRef:
