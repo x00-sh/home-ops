@@ -9,27 +9,27 @@ spec:
       namespace: security
     - name: cloudnative-pg
       namespace: database
-    # These deploy ConfigMaps this HelmRelease mounts by name (blueprints.
-    # configMaps); without this, a from-scratch apply can start the worker
-    # before they exist. The Kustomization objects themselves live in their
-    # own namespace (media/home-automation/observability), not `security` —
-    # that's just where their targetNamespace points their output.
+    # These deploy the three namespace-level ConfigMaps this HelmRelease
+    # mounts by name (blueprints.configMaps); without this, a from-scratch
+    # apply can start the worker before they exist. The Kustomization objects
+    # themselves live in their own namespace (media/home-automation/
+    # observability), not `security` — that's just where their
+    # targetNamespace points their output.
+    #
+    # Deliberately NOT listed here: the per-app ...-authentik-blueprint
+    # Kustomizations (kubernetes/apps/media/sonarr/authentik/ and siblings).
+    # Flux's dependsOn can only be declared on the waiting side, so it can
+    # never truly live inside an app's own directory either way — but adding
+    # one per app here would mean every app removal also requires an edit in
+    # this file. Omitting it just means a from-scratch rebuild has the worker
+    # pod retry for a few seconds until that one app's ConfigMap appears,
+    # which self-heals well within this Kustomization's own timeout.
     - name: media-authentik-blueprint
       namespace: media
     - name: home-automation-authentik-blueprint
       namespace: home-automation
     - name: observability-authentik-blueprint
       namespace: observability
-    - name: sonarr-authentik-blueprint
-      namespace: media
-    - name: radarr-authentik-blueprint
-      namespace: media
-    - name: prowlarr-authentik-blueprint
-      namespace: media
-    - name: bazarr-authentik-blueprint
-      namespace: media
-    - name: sabnzbd-authentik-blueprint
-      namespace: media
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
