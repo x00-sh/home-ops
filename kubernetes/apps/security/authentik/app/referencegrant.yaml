@@ -1,0 +1,23 @@
+---
+# Lets a SecurityPolicy's extAuth.http.backendRefs in another namespace point
+# at the authentik-server Service here — Gateway API blocks any cross-
+# namespace backendRef without one. Must live in `security` (the "to" side),
+# so unlike everything else in the per-app forward-auth pattern, this one
+# genuinely can't move into each app's own directory; add a `from` entry here
+# whenever a new namespace gets its first forward-auth SecurityPolicy.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: authentik-server-forward-auth
+spec:
+  from:
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: media
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: home-automation
+  to:
+    - group: ""
+      kind: Service
+      name: authentik-server

@@ -1,0 +1,45 @@
+---
+# Forward auth via Authentik's embedded outpost. Targets this app's own
+# chart-rendered HTTPRoute (same namespace requirement Gateway API enforces
+# for route-level policy attachment) rather than the Gateway, so apps that
+# don't want this stay untouched. Path and header lists verified by hand
+# against the live outpost before this was written — see
+# kubernetes/apps/media/sonarr/authentik/ for the matching Provider.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: sonarr-authentik
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: sonarr
+  extAuth:
+    failOpen: false
+    headersToExtAuth:
+      - X-Forwarded-For
+      - X-Real-Ip
+      - accept
+      - cookie
+      - authorization
+      - proxy-authorization
+      - x-forwarded-proto
+    http:
+      backendRefs:
+        - kind: Service
+          name: authentik-server
+          namespace: security
+          port: 80
+      # Envoy-specific endpoint — needs only the request's own Host, unlike
+      # /outpost.goauthentik.io/auth/nginx which additionally wants
+      # X-Original-URL/X-Original-Method headers Envoy has no native way to
+      # set.
+      path: /outpost.goauthentik.io/auth/envoy
+      headersToBackend:
+        - Set-Cookie
+        - X-authentik-uid
+        - X-authentik-username
+        - X-authentik-name
+        - X-authentik-email
+        - X-authentik-groups
+        - X-authentik-entitlements

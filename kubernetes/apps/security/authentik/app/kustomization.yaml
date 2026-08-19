@@ -9,4 +9,5 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
+  - ./referencegrant.yaml
   - ./backup.yaml
