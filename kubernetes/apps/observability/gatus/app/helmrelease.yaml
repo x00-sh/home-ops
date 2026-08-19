@@ -63,7 +63,13 @@ spec:
             send-on-resolved: true
 
       endpoints:
-        # --- media, LAN only, via the internal gateway ---
+        # --- media, LAN only, via the internal gateway. All five now sit
+        # behind Authentik forward auth (SecurityPolicy ext_authz), so an
+        # unauthenticated check gets a 302 to auth.${SECRET_DOMAIN}, not a 200
+        # from the app itself — [STATUS] < 400 already tolerates that. Not a
+        # weaker check: it now also proves the SecurityPolicy, the embedded
+        # outpost and Authentik itself are all reachable, which the old
+        # "app answered 200" check said nothing about. ---
         - name: sonarr
           group: media
           url: https://sonarr.${SECRET_DOMAIN}
@@ -210,6 +216,9 @@ spec:
           alerts: [{ type: ntfy }]
         - name: zigbee2mqtt
           group: home
+          # Behind Authentik forward auth too — see the media group's comment
+          # above. Home Assistant is not: its own login stays in front of it,
+          # unrelated to this.
           url: https://z2m.${SECRET_DOMAIN}
           interval: 1m
           conditions: ["[STATUS] < 400"]
