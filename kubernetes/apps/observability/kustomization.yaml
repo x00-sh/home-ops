@@ -10,9 +10,11 @@ resources:
   - ./namespace.yaml
   - ./authentik-blueprint/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
+  - ./kube-prometheus-stack/authentik/ks.yaml
   - ./ntfy-alertmanager/ks.yaml
   - ./gatus/ks.yaml
   - ./loki/ks.yaml
   - ./alloy/ks.yaml
   - ./headlamp/ks.yaml
+  - ./headlamp/authentik/ks.yaml
   - ./vector/ks.yaml

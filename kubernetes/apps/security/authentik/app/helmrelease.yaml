@@ -42,6 +42,8 @@ spec:
         - bazarr-authentik-blueprint
         - sabnzbd-authentik-blueprint
         - zigbee2mqtt-authentik-blueprint
+        - grafana-authentik-blueprint
+        - headlamp-authentik-blueprint
     authentik:
       # Points at the CloudNativePG read-write service
       postgresql:

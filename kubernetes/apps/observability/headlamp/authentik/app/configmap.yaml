@@ -1,0 +1,62 @@
+---
+# Moved here from kubernetes/apps/security/authentik/app/blueprints.yaml —
+# see kubernetes/apps/media/sonarr/authentik/ for the general pattern this
+# follows. One difference from the media/home-automation apps: headlamp-users
+# is not shared with any other app, so unlike `media`/`home-automation` there
+# is no separate namespace-level group file — the group lives right here,
+# fully self-contained with the rest of Headlamp's own OIDC config.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: headlamp-authentik-blueprint
+data:
+  headlamp.yaml: |
+    version: 1
+    metadata:
+      name: headlamp-oidc
+    entries:
+      # Unlike Grafana, this group is not merely a role mapping: the Kubernetes
+      # API server is configured to trust this issuer, and a ClusterRoleBinding
+      # grants `view` to `oidc:headlamp-users`. Membership here is what decides
+      # whether someone can read the cluster at all.
+      - model: authentik_core.group
+        id: group-headlamp-users
+        identifiers:
+          name: headlamp-users
+        attrs:
+          is_superuser: false
+
+      - model: authentik_providers_oauth2.oauth2provider
+        id: provider-headlamp
+        identifiers:
+          name: headlamp
+        attrs:
+          client_type: confidential
+          client_id: headlamp
+          client_secret: !Env HEADLAMP_OIDC_CLIENT_SECRET
+          grant_types:
+            - authorization_code
+            - refresh_token
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          redirect_uris:
+            - matching_mode: strict
+              url: https://dash.${SECRET_DOMAIN}/oidc-callback
+          # `profile` carries the groups claim the API server reads to decide
+          # authorisation; `email` carries the username claim it reads to decide
+          # identity. Neither is optional here.
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+
+      - model: authentik_core.application
+        identifiers:
+          slug: headlamp
+        attrs:
+          name: Headlamp
+          provider: !KeyOf provider-headlamp
+          meta_launch_url: https://dash.${SECRET_DOMAIN}
+          meta_icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/svg/headlamp.svg
+          policy_engine_mode: any
