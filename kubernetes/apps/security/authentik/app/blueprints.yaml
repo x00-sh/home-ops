@@ -16,6 +16,102 @@ kind: ConfigMap
 metadata:
   name: authentik-blueprints
 data:
+  groups.yaml: |
+    version: 1
+    metadata:
+      name: forward-auth-groups
+    entries:
+      # Namespace-scoped access groups for Envoy forward-auth (SecurityPolicy
+      # ext_authz), mirroring the group: labels Gatus already uses
+      # (media/home/observability). One group per namespace that has apps
+      # behind forward auth, not one group per app — membership in `media`
+      # covers every *arr admin UI at once.
+      - model: authentik_core.group
+        id: group-media
+        identifiers:
+          name: media
+        attrs:
+          is_superuser: false
+      - model: authentik_core.group
+        id: group-home-automation
+        identifiers:
+          name: home-automation
+        attrs:
+          is_superuser: false
+      # Not attached to any Application yet — created now because it costs
+      # nothing and this is the mechanism the README's open item on exposing
+      # status.x00.sh/dash.x00.sh will reuse. Grafana and Headlamp keep their
+      # own OIDC login for now; folding them into forward-auth is separate
+      # work.
+      - model: authentik_core.group
+        id: group-observability
+        identifiers:
+          name: observability
+        attrs:
+          is_superuser: false
+
+      - model: authentik_core.group
+        identifiers:
+          name: media
+        attrs:
+          users:
+            - !Find [authentik_core.user, [username, jlor]]
+      - model: authentik_core.group
+        identifiers:
+          name: home-automation
+        attrs:
+          users:
+            - !Find [authentik_core.user, [username, jlor]]
+  outpost.yaml: |
+    version: 1
+    metadata:
+      name: forward-auth-outpost
+    entries:
+      # Authentik's embedded outpost only proxies for providers explicitly
+      # assigned to it, and that assignment is a single list on the Outpost
+      # object rather than something a Provider declares about itself — so
+      # unlike every other file in this ConfigMap, this one has to be touched
+      # again each time a new forward-auth app is added, adding its provider
+      # to this same list. !Find, not !KeyOf: these providers are defined in
+      # sibling blueprint files, and !KeyOf only resolves within the blueprint
+      # document that set the id.
+      - model: authentik_outposts.outpost
+        identifiers:
+          name: authentik Embedded Outpost
+        attrs:
+          providers:
+            - !Find [authentik_providers_proxy.proxyprovider, [name, sonarr]]
+  sonarr.yaml: |
+    version: 1
+    metadata:
+      name: sonarr-forward-auth
+    entries:
+      - model: authentik_providers_proxy.proxyprovider
+        id: provider-sonarr
+        identifiers:
+          name: sonarr
+        attrs:
+          external_host: https://sonarr.${SECRET_DOMAIN}
+          mode: forward_single
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+      - model: authentik_core.application
+        identifiers:
+          slug: sonarr
+        attrs:
+          name: Sonarr
+          provider: !KeyOf provider-sonarr
+          meta_launch_url: https://sonarr.${SECRET_DOMAIN}
+          policy_engine_mode: any
+
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, sonarr]]
+          group: !Find [authentik_core.group, [name, media]]
+        attrs:
+          order: 0
+          enabled: true
   grafana.yaml: |
     version: 1
     metadata:
