@@ -1,0 +1,24 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: media-authentik-blueprint
+spec:
+  # Deploys a ConfigMap, but it has to land in `security` — that's where
+  # authentik-worker mounts it from, and configMap volumes can't cross
+  # namespaces. targetNamespace below overrides the media/kustomization.yaml
+  # namespace: transformer, which only touches this Kustomization object's own
+  # metadata.namespace, not this field.
+  interval: 1h
+  path: ./kubernetes/apps/media/authentik-blueprint/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: security
+  wait: true

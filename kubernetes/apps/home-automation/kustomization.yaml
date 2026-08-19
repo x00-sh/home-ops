@@ -8,6 +8,7 @@ components:
 
 resources:
   - ./namespace.yaml
+  - ./authentik-blueprint/ks.yaml
   - ./home-automation-volume/ks.yaml
   - ./generic-device-plugin/ks.yaml
   - ./mqtt/ks.yaml

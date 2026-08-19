@@ -1,0 +1,27 @@
+---
+# See kubernetes/apps/media/authentik-blueprint/app/configmap.yaml for the
+# pattern this follows. Group only for now — Zigbee2MQTT's Provider/
+# Application/PolicyBinding get added here when its forward auth is rolled
+# out, following the *arr apps in kubernetes/apps/media/.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: home-automation-authentik-blueprint
+data:
+  home-automation.yaml: |
+    version: 1
+    metadata:
+      name: home-automation-forward-auth
+    entries:
+      - model: authentik_core.group
+        id: group-home-automation
+        identifiers:
+          name: home-automation
+        attrs:
+          is_superuser: false
+      - model: authentik_core.group
+        identifiers:
+          name: home-automation
+        attrs:
+          users:
+            - !Find [authentik_core.user, [username, jlor]]

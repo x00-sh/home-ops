@@ -1,0 +1,28 @@
+---
+# The `media` access group only — deliberately namespace-scoped, not per-app:
+# it is shared by every *arr admin UI, and must survive any single one of
+# them being removed. Each app's own Provider/Application/PolicyBinding lives
+# and dies with that app instead, e.g. kubernetes/apps/media/sonarr/authentik/
+# — see that directory for the pattern and the reasoning.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: media-authentik-blueprint
+data:
+  media.yaml: |
+    version: 1
+    metadata:
+      name: media-forward-auth
+    entries:
+      - model: authentik_core.group
+        id: group-media
+        identifiers:
+          name: media
+        attrs:
+          is_superuser: false
+      - model: authentik_core.group
+        identifiers:
+          name: media
+        attrs:
+          users:
+            - !Find [authentik_core.user, [username, jlor]]

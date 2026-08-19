@@ -9,6 +9,19 @@ spec:
       namespace: security
     - name: cloudnative-pg
       namespace: database
+    # These deploy ConfigMaps this HelmRelease mounts by name (blueprints.
+    # configMaps); without this, a from-scratch apply can start the worker
+    # before they exist. The Kustomization objects themselves live in their
+    # own namespace (media/home-automation/observability), not `security` —
+    # that's just where their targetNamespace points their output.
+    - name: media-authentik-blueprint
+      namespace: media
+    - name: home-automation-authentik-blueprint
+      namespace: home-automation
+    - name: observability-authentik-blueprint
+      namespace: observability
+    - name: sonarr-authentik-blueprint
+      namespace: media
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease

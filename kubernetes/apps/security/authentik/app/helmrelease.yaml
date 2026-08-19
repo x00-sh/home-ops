@@ -24,6 +24,19 @@ spec:
     blueprints:
       configMaps:
         - authentik-blueprints
+        # Forward-auth config for apps outside this namespace, defined
+        # alongside them instead of centralized here. Each namespace's own
+        # <namespace>-authentik-blueprint ConfigMap holds just that
+        # namespace's access group (kubernetes/apps/media/authentik-blueprint/
+        # is the pattern); each individual app's own Provider/Application/
+        # PolicyBinding lives with the app itself instead
+        # (kubernetes/apps/media/sonarr/authentik/ is that pattern) so
+        # removing an app's directory removes its forward-auth config too.
+        # Add an entry here for every ConfigMap either kind produces.
+        - media-authentik-blueprint
+        - home-automation-authentik-blueprint
+        - observability-authentik-blueprint
+        - sonarr-authentik-blueprint
     authentik:
       # Points at the CloudNativePG read-write service
       postgresql:

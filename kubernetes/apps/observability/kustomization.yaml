@@ -8,6 +8,7 @@ components:
 
 resources:
   - ./namespace.yaml
+  - ./authentik-blueprint/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   - ./ntfy-alertmanager/ks.yaml
   - ./gatus/ks.yaml
