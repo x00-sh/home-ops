@@ -13,5 +13,6 @@ resources:
   - ./generic-device-plugin/ks.yaml
   - ./mqtt/ks.yaml
   - ./zigbee2mqtt/ks.yaml
+  - ./zigbee2mqtt/authentik/ks.yaml
   - ./home-assistant/ks.yaml
   - ./config-backup/ks.yaml

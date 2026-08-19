@@ -42,6 +42,7 @@ data:
             - !Find [authentik_providers_proxy.proxyprovider, [name, prowlarr]]
             - !Find [authentik_providers_proxy.proxyprovider, [name, bazarr]]
             - !Find [authentik_providers_proxy.proxyprovider, [name, sabnzbd]]
+            - !Find [authentik_providers_proxy.proxyprovider, [name, zigbee2mqtt]]
   grafana.yaml: |
     version: 1
     metadata:

@@ -28,6 +28,7 @@ data:
           name: Prowlarr
           provider: !KeyOf provider-prowlarr
           meta_launch_url: https://prowlarr.${SECRET_DOMAIN}
+          meta_icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/svg/prowlarr.svg
           policy_engine_mode: any
 
       - model: authentik_policies.policybinding

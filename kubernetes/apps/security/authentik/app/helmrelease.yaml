@@ -41,6 +41,7 @@ spec:
         - prowlarr-authentik-blueprint
         - bazarr-authentik-blueprint
         - sabnzbd-authentik-blueprint
+        - zigbee2mqtt-authentik-blueprint
     authentik:
       # Points at the CloudNativePG read-write service
       postgresql:
