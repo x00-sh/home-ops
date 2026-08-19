@@ -94,6 +94,7 @@ data:
           name: Grafana
           provider: !KeyOf provider-grafana
           meta_launch_url: https://grafana.${SECRET_DOMAIN}
+          meta_icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/svg/grafana.svg
           policy_engine_mode: any
   headlamp.yaml: |
     version: 1
@@ -143,4 +144,5 @@ data:
           name: Headlamp
           provider: !KeyOf provider-headlamp
           meta_launch_url: https://dash.${SECRET_DOMAIN}
+          meta_icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/svg/headlamp.svg
           policy_engine_mode: any
