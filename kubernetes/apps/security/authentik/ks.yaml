@@ -22,6 +22,14 @@ spec:
       namespace: observability
     - name: sonarr-authentik-blueprint
       namespace: media
+    - name: radarr-authentik-blueprint
+      namespace: media
+    - name: prowlarr-authentik-blueprint
+      namespace: media
+    - name: bazarr-authentik-blueprint
+      namespace: media
+    - name: sabnzbd-authentik-blueprint
+      namespace: media
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease

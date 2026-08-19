@@ -1,0 +1,39 @@
+---
+# See kubernetes/apps/media/sonarr/authentik/app/configmap.yaml for the
+# pattern this follows.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: radarr-authentik-blueprint
+data:
+  radarr.yaml: |
+    version: 1
+    metadata:
+      name: radarr-forward-auth
+    entries:
+      - model: authentik_providers_proxy.proxyprovider
+        id: provider-radarr
+        identifiers:
+          name: radarr
+        attrs:
+          external_host: https://radarr.${SECRET_DOMAIN}
+          mode: forward_single
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+      - model: authentik_core.application
+        identifiers:
+          slug: radarr
+        attrs:
+          name: Radarr
+          provider: !KeyOf provider-radarr
+          meta_launch_url: https://radarr.${SECRET_DOMAIN}
+          policy_engine_mode: any
+
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, radarr]]
+          group: !Find [authentik_core.group, [name, media]]
+        attrs:
+          order: 0
+          enabled: true

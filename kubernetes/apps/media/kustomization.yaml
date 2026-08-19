@@ -14,9 +14,13 @@ resources:
   - ./sonarr/ks.yaml
   - ./sonarr/authentik/ks.yaml
   - ./radarr/ks.yaml
+  - ./radarr/authentik/ks.yaml
   - ./sabnzbd/ks.yaml
+  - ./sabnzbd/authentik/ks.yaml
   - ./jellyfin/ks.yaml
   - ./seerr/ks.yaml
   - ./bazarr/ks.yaml
+  - ./bazarr/authentik/ks.yaml
   - ./prowlarr/ks.yaml
+  - ./prowlarr/authentik/ks.yaml
   - ./configarr/ks.yaml
