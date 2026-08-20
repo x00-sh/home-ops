@@ -63,3 +63,15 @@ data:
           meta_launch_url: https://grafana.${SECRET_DOMAIN}
           meta_icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/svg/grafana.svg
           policy_engine_mode: any
+
+      # Without this, OIDC login itself has no gate: any Authentik account
+      # (not just grafana-admins) can complete login and reach Grafana as a
+      # default-role viewer. grafana-admins only maps a role *after* login,
+      # it was never an access control on the Application itself.
+      - model: authentik_policies.policybinding
+        identifiers:
+          target: !Find [authentik_core.application, [slug, grafana]]
+          group: !Find [authentik_core.group, [name, grafana-admins]]
+        attrs:
+          order: 0
+          enabled: true
