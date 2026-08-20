@@ -6,7 +6,9 @@
     enabled: true,
     schedule: ["before 3am on the first day of the month"],
     commitMessageExtra: "({{manager}})",
-    additionalBranchPrefix: "{{manager}}-"
+    additionalBranchPrefix: "{{manager}}-",
+    // Hash/metadata refresh only, no functional version change.
+    automerge: true,
   },
   packageRules: [
     {
@@ -39,6 +41,24 @@
       minimumGroupSize: 2,
     },
     {
+      // Automerge lands as a direct commit to main, not a PR to click merge
+      // on (":automergeBranch" in the base preset sets automergeType:
+      // "branch" for anything with automerge: true here) — gated on the
+      // Flate CI check, which renders the whole Kustomization tree and
+      // catches build-time breakage before it lands. It does not catch
+      // runtime breakage; see the FluxControllerReconcileErrors alert and
+      // the chart's own KubePodCrashLooping rule for that half.
+      description: "Automerge patch and digest bumps — everything else (minor, major) stays manual",
+      matchUpdateTypes: ["patch", "digest"],
+      automerge: true,
+    },
+    {
+      description: "Also automerge minor bumps for things with zero cluster blast radius — repo CI and local CLI tooling, not anything actually running",
+      matchManagers: ["github-actions", "mise"],
+      matchUpdateTypes: ["minor"],
+      automerge: true,
+    },
+    {
       matchUpdateTypes: ["major"],
       addLabels: ["type/major"],
     },
@@ -69,6 +89,31 @@
     {
       matchDatasources: ["github-releases"],
       addLabels: ["renovate/github-release"],
+    },
+    {
+      // Listed last so it wins over the automerge rules above regardless of
+      // update type. Single-node cluster — any change to a node component
+      // needs a reboot, which is a full outage; always schedule these
+      // deliberately. kubelet isn't in the "Talos Group" above (that group
+      // only covers installer/talosctl), added here explicitly since it's
+      // the same class of risk.
+      description: "Talos node components never automerge, any update type",
+      matchPackageNames: [
+        "ghcr.io/siderolabs/installer",
+        "siderolabs/talos",
+        "talosctl",
+        "ghcr.io/siderolabs/kubelet",
+      ],
+      automerge: false,
+    },
+    {
+      // Also listed last, same reasoning. Authentik carries a lot of
+      // hand-built blueprint/PolicyBinding/MFA config (see
+      // docs/areas/authentik.md) that a schema or default-behavior change
+      // could break under — every update, even patch, gets a manual look.
+      description: "Authentik never automerges, any update type",
+      matchPackageNames: ["ghcr.io/goauthentik/helm-charts/authentik"],
+      automerge: false,
     },
   ],
 }
