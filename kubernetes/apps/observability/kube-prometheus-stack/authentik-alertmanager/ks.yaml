@@ -1,0 +1,24 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: alertmanager-authentik-blueprint
+spec:
+  # See kubernetes/apps/media/sonarr/authentik/ks.yaml for why this targets
+  # `security` rather than this namespace. Deliberately a sibling of, not
+  # merged into, ./authentik/ — that directory is Grafana's own native OIDC
+  # login (a different mechanism); this one is Alertmanager's forward-auth
+  # config, since Alertmanager has no login of its own.
+  interval: 1h
+  path: ./kubernetes/apps/observability/kube-prometheus-stack/authentik-alertmanager/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: security
+  wait: true

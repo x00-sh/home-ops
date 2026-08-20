@@ -45,6 +45,7 @@ spec:
         - grafana-authentik-blueprint
         - headlamp-authentik-blueprint
         - gatus-authentik-blueprint
+        - alertmanager-authentik-blueprint
     authentik:
       # Points at the CloudNativePG read-write service
       postgresql:

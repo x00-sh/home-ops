@@ -11,6 +11,7 @@ resources:
   - ./authentik-blueprint/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   - ./kube-prometheus-stack/authentik/ks.yaml
+  - ./kube-prometheus-stack/authentik-alertmanager/ks.yaml
   - ./ntfy-alertmanager/ks.yaml
   - ./gatus/ks.yaml
   - ./gatus/authentik/ks.yaml

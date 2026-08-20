@@ -1,0 +1,41 @@
+---
+# Forward auth via Authentik's embedded outpost, for Alertmanager only —
+# Grafana uses its own native OIDC login instead (../authentik/), so it gets
+# no SecurityPolicy here. See kubernetes/apps/media/sonarr/app/ for the
+# pattern this follows and
+# kubernetes/apps/observability/kube-prometheus-stack/authentik-alertmanager/
+# for the matching Provider.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: alertmanager-authentik
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: alertmanager
+  extAuth:
+    failOpen: false
+    headersToExtAuth:
+      - X-Forwarded-For
+      - X-Real-Ip
+      - accept
+      - cookie
+      - authorization
+      - proxy-authorization
+      - x-forwarded-proto
+    http:
+      backendRefs:
+        - kind: Service
+          name: authentik-server
+          namespace: security
+          port: 80
+      path: /outpost.goauthentik.io/auth/envoy
+      headersToBackend:
+        - Set-Cookie
+        - X-authentik-uid
+        - X-authentik-username
+        - X-authentik-name
+        - X-authentik-email
+        - X-authentik-groups
+        - X-authentik-entitlements
