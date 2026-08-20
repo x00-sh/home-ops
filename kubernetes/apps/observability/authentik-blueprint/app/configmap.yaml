@@ -1,11 +1,10 @@
 ---
 # See kubernetes/apps/media/authentik-blueprint/app/configmap.yaml for the
-# pattern this follows. Stub group only — not bound to any Application yet.
-# Grafana and Headlamp keep their own native Authentik OIDC login
-# (kubernetes/apps/security/authentik/app/blueprints.yaml) rather than
-# forward auth. This group exists for the still-undesigned README open item
-# on remote access to status.x00.sh/dash.x00.sh, which is expected to reuse
-# this same forward-auth mechanism.
+# pattern this follows. Grafana and Headlamp keep their own native Authentik
+# OIDC login (their own authentik/ directories) rather than forward auth, so
+# they gate on their own per-app groups instead of this one. This group is
+# for apps using the forward-auth pattern — see
+# kubernetes/apps/observability/gatus/authentik/ for the first one.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,3 +21,9 @@ data:
           name: observability
         attrs:
           is_superuser: false
+      - model: authentik_core.group
+        identifiers:
+          name: observability
+        attrs:
+          users:
+            - !Find [authentik_core.user, [username, jlor]]

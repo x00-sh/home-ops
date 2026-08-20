@@ -13,6 +13,7 @@ resources:
   - ./kube-prometheus-stack/authentik/ks.yaml
   - ./ntfy-alertmanager/ks.yaml
   - ./gatus/ks.yaml
+  - ./gatus/authentik/ks.yaml
   - ./loki/ks.yaml
   - ./alloy/ks.yaml
   - ./headlamp/ks.yaml

@@ -45,3 +45,4 @@ data:
             - !Find [authentik_providers_proxy.proxyprovider, [name, bazarr]]
             - !Find [authentik_providers_proxy.proxyprovider, [name, sabnzbd]]
             - !Find [authentik_providers_proxy.proxyprovider, [name, zigbee2mqtt]]
+            - !Find [authentik_providers_proxy.proxyprovider, [name, gatus]]
