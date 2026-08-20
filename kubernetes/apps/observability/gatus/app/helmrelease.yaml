@@ -139,7 +139,16 @@ spec:
 
         # --- the monitoring stack itself. Overlaps with Prometheus's own pod
         # health alerts on purpose: those depend on Prometheus being up, and
-        # these do not. The two fail independently, which is the point. ---
+        # these do not. The two fail independently, which is the point.
+        #
+        # Both public since 2026-08-20 (envoy-external, not envoy-internal) —
+        # see authentik-forward-auth.md §10. Grafana's own OIDC login answers
+        # its `/login` page directly (still < 400); Alertmanager sits behind
+        # Authentik forward auth like the media apps above, so an
+        # unauthenticated check gets a 302 to auth.${SECRET_DOMAIN}, which
+        # [STATUS] < 400 already tolerates and which also proves the
+        # SecurityPolicy/outpost/Authentik chain, not just "app answered
+        # 200". ---
         - name: grafana
           group: observability
           url: https://grafana.${SECRET_DOMAIN}
