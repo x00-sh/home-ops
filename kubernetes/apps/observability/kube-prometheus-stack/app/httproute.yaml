@@ -1,13 +1,17 @@
 ---
-# Internal gateway only. Prometheus deliberately gets no route at all — it is
-# queried through Grafana, and it has no authentication of its own.
+# Prometheus deliberately gets no route at all — it is queried through
+# Grafana, and it has no authentication of its own.
+#
+# Public. Grafana gates on its own native Authentik OIDC login (./authentik/)
+# and Alertmanager on Authentik forward auth (../authentik-alertmanager/) —
+# see authentik-forward-auth.md.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: grafana
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: envoy-external
       namespace: network
       sectionName: https
   hostnames:
@@ -23,7 +27,7 @@ metadata:
   name: alertmanager
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: envoy-external
       namespace: network
       sectionName: https
   hostnames:
