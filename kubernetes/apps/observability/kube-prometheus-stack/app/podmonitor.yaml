@@ -1,0 +1,28 @@
+---
+# kustomize-controller and helm-controller run in flux-system (template-owned;
+# see home-ops/CLAUDE.md — new resources can't be added to that namespace's
+# own generated kustomization.yaml, so this lives here instead and reaches
+# into flux-system via namespaceSelector, the same way kube-prometheus-stack
+# already scrapes kube-system components). Neither controller has a Service
+# in front of its metrics port, so PodMonitor (which targets pods directly)
+# rather than ServiceMonitor. source-controller and notification-controller
+# already have Services but aren't scraped either — add them the same way if
+# their reconcile health becomes worth alerting on too.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flux-controllers
+spec:
+  namespaceSelector:
+    matchNames:
+      - flux-system
+  podMetricsEndpoints:
+    - port: http-prom
+      path: /metrics
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - kustomize-controller
+          - helm-controller

@@ -37,3 +37,25 @@ spec:
             description: >-
               Only {{ $value | humanize1024 }}B free on the NFS media library.
               SABnzbd will start failing imports once it cannot unpack.
+
+    - name: homelab-gitops
+      rules:
+        # Companion to relying more on Renovate automerge: Flate (CI) only
+        # catches build-time breakage before merge, not a Kustomization or
+        # HelmRelease that fails to actually apply once it reaches the
+        # cluster. This is the same signal `flux get ks/hr` shows by hand,
+        # just proactive. It does NOT catch an app that applies cleanly but
+        # then crash-loops — that's KubePodCrashLooping (already enabled,
+        # part of the chart's default rules) covering the other half.
+        - alert: FluxControllerReconcileErrors
+          expr: |
+            sum by (pod) (rate(controller_runtime_reconcile_errors_total{namespace="flux-system"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: A Flux controller has been failing to reconcile for 15+ minutes
+            description: >-
+              {{ $labels.pod }} has a nonzero reconcile-error rate. Run
+              `flux get ks -A` / `flux get hr -A` to find which
+              Kustomization or HelmRelease is stuck.
