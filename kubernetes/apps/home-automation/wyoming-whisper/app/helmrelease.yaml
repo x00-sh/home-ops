@@ -94,7 +94,11 @@ spec:
                 # holding reservation it does not use, while the limit stops a
                 # long transcription from crowding Home Assistant off the node.
                 cpu: 100m
-                memory: 512Mi
+                # Measured at ~644Mi resident in steady state with
+                # small-int8 loaded, so 512Mi understated it. The request is
+                # what the scheduler and the eviction ranking use, so an
+                # honest floor here matters more than the (generous) limit.
+                memory: 768Mi
               limits:
                 cpu: "4"
                 memory: 2Gi
