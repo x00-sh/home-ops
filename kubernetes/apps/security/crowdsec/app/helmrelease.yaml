@@ -151,3 +151,58 @@ spec:
         enabled: true
         podMonitor:
           enabled: true
+      # Confirmed upstream bug, still open: crowdsecurity/helm-charts#331.
+      # LAPI ships 4 default postoverflows baked into the image config
+      # (cdn-whitelist, google-special-crawlers-whitelist,
+      # seo-bots-whitelist, rdns) whose *data* files (Cloudflare ranges,
+      # Google/SEO crawler IPs, GeoLite2 DBs) are never fetched — LAPI's
+      # docker_start.sh has all agent-side collection/hub-install logic
+      # stripped out (see its own header comment), so nothing ever
+      # populates them, even though /var/lib/crowdsec/data (the
+      # `persistentVolume.data` PVC above) genuinely does persist across
+      # restarts here — confirmed by checking `mount` and the PVC list, so
+      # this isn't the "no PV at all" variant of the bug some other reports
+      # describe. The community-verified one-shot fix is `cscli hub
+      # upgrade` (confirmed live in this cluster: it fetched all 9 missing
+      # files, including both GeoLite2 DBs — no MaxMind account needed,
+      # CrowdSec mirrors them). `cscli` itself can't run before the main
+      # container's own entrypoint has generated /etc/crowdsec/config.yaml
+      # (credentials, DB connection etc.), which an initContainer starting
+      # from the same image doesn't have yet — so this fetches the same
+      # files directly instead, bypassing cscli/config entirely. `wget -nc`
+      # is a real no-op (verified: mtime unchanged) once files exist on the
+      # persistent volume, so this is a fast skip on every normal restart,
+      # not a repeated download — it only does real work again after a
+      # from-scratch PVC (e.g. disaster recovery).
+      extraInitContainers:
+        - name: fetch-hub-data
+          image: crowdsecurity/crowdsec:v1.7.8
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              cd /var/lib/crowdsec/data
+              for url in \
+                https://hub-data.crowdsec.net/whitelists/cdn_providers/cloudflare_ips.txt \
+                https://hub-data.crowdsec.net/whitelists/cdn_providers/cloudflare_ip6s.txt \
+                https://hub-data.crowdsec.net/whitelists/benign_bots/search_engine_crawlers/google_special_crawlers_ipv4.txt \
+                https://hub-data.crowdsec.net/whitelists/benign_bots/search_engine_crawlers/google_special_crawlers_ipv6.txt \
+                https://hub-data.crowdsec.net/whitelists/benign_bots/search_engine_crawlers/rdns_seo_bots.txt \
+                https://hub-data.crowdsec.net/whitelists/benign_bots/search_engine_crawlers/ip_seo_bots.txt \
+                https://hub-data.crowdsec.net/mmdb_update/GeoLite2-City.mmdb \
+                https://hub-data.crowdsec.net/mmdb_update/GeoLite2-ASN.mmdb \
+              ; do
+                wget -q -nc -O "$(basename "$url")" "$url" || echo "warn: failed to fetch $url"
+              done
+              # Source filename really is misspelled upstream ("rnds"); the
+              # postoverflow YAML's dest_file is the correctly-spelled
+              # rdns_seo_bots.regex, so basename() alone would land here
+              # under the wrong name.
+              wget -q -nc -O rdns_seo_bots.regex \
+                https://hub-data.crowdsec.net/whitelists/benign_bots/search_engine_crawlers/rnds_seo_bots.regex \
+                || echo "warn: failed to fetch rdns_seo_bots.regex"
+          volumeMounts:
+            - name: crowdsec-db
+              mountPath: /var/lib/crowdsec/data
+              subPath: crowdsec
