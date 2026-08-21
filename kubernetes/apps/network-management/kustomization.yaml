@@ -1,0 +1,19 @@
+---
+# A namespace the cluster-template knows nothing about, so this file is
+# hand-written and survives `just configure` — the same reason `storage`,
+# `media` and `home-automation` exist. It must keep the sops component or
+# postBuild substitution has no cluster-secrets to read.
+#
+# Deliberately NOT the template-owned `network` namespace, which is
+# regenerated: anything added there is silently reverted.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: network-management
+
+components:
+  - ../../components/sops
+
+resources:
+  - ./namespace.yaml
+  - ./network-management-volume/ks.yaml
+  - ./omada/ks.yaml

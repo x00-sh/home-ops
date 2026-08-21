@@ -1,0 +1,21 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: omada
+spec:
+  dependsOn:
+    - name: network-management-volume
+      namespace: network-management
+  interval: 1h
+  path: ./kubernetes/apps/network-management/omada/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: network-management
+  # Omada boots a JVM and an embedded MongoDB before it listens; on a cold
+  # start that is minutes, not seconds.
+  timeout: 15m
+  wait: true

@@ -1,0 +1,31 @@
+---
+# Declared here rather than in the HelmRelease so the data outlives any
+# release, matching media-volume and home-automation-volume.
+#
+# openebs-hostpath has ALLOWVOLUMEEXPANSION false — neither of these can be
+# grown later, so they are sized with room. The controller's data directory
+# was 604M on docker at migration time; 5Gi is the size the upstream Helm
+# chart also suggests.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omada-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Separate from the data volume so log growth can never fill the thing that
+# holds the MongoDB database. Was 75M on docker.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omada-logs
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,155 @@
+---
+# TP-Link Omada SDN controller, migrated from docker-compose on the dev VM.
+#
+# Deployed at replicas 0 on purpose. The data volume has to be seeded with a
+# copy of /opt/omada/data BEFORE this starts, or the controller initialises an
+# empty MongoDB and adopts nothing — and once it has written a fresh database,
+# seeding over the top is no longer clean. Scale to 1 only after the copy, and
+# then commit `replicas: 1` here as its own change: an imperative
+# `kubectl scale` is reverted by the next unrelated reconcile that touches
+# this file (see gitops-and-flux.md).
+#
+# NOT the upstream mbentley Helm chart. That chart requires an EXTERNAL
+# MongoDB (a pre-created omada-db-uri-secret, with the Bitnami mongodb chart
+# alongside), which would add a second database engine to a cluster whose
+# stated design is one Postgres for Authentik and SQLite everywhere else. The
+# image embeds MongoDB, which is how it already runs on docker, so
+# app-template plus two volumes reproduces the working deployment exactly.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: omada
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: omada
+  interval: 1h
+  values:
+    controllers:
+      omada:
+        replicas: 0
+        type: deployment
+        # The MongoDB data directory is ReadWriteOnce on node-local storage;
+        # two pods overlapping would mean two mongod processes over one
+        # dbPath.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/mbentley/omada-controller
+              # Pinned to the version already running on docker
+              # (confirmed live via /api/info), so seeding the existing data
+              # is like-for-like with no schema migration. `latest` currently
+              # resolves to this same digest, but 6.x exists and Omada cannot
+              # be downgraded — an unpinned tag would eventually carry the
+              # controller across a major version unattended.
+              tag: 5.15.24.19
+            env:
+              TZ: Europe/Copenhagen
+              # Carried over verbatim from docker-compose. The image starts as
+              # root and drops to PUID/PGID itself, so there is no
+              # runAsNonRoot here — forcing one would break its own
+              # privilege drop. This is the exception in this cluster, not the
+              # pattern.
+              PUID: "1000"
+              PGID: "1000"
+              MANAGE_HTTP_PORT: "8088"
+              MANAGE_HTTPS_PORT: "8043"
+              PORTAL_HTTP_PORT: "8088"
+              PORTAL_HTTPS_PORT: "8843"
+              SHOW_SERVER_LOGS: "true"
+              SHOW_MONGODB_LOGS: "false"
+            probes:
+              # /api/info answers unauthenticated and reports controllerVer,
+              # so it is a real readiness signal rather than "the port is
+              # open". Plain HTTP on the manage port: the UI redirects to
+              # HTTPS but this API path does not.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/info
+                    port: 8088
+                  initialDelaySeconds: 60
+                  periodSeconds: 30
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/info
+                    port: 8088
+                  periodSeconds: 15
+              # A JVM plus MongoDB start is minutes on a cold volume. Without
+              # this the liveness probe kills the pod before it ever finishes
+              # booting, forever.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/info
+                    port: 8088
+                  periodSeconds: 10
+                  failureThreshold: 60
+            resources:
+              requests:
+                cpu: 200m
+                memory: 1Gi
+              limits:
+                # Heavier than anything else in this cluster: it is a JVM and
+                # a MongoDB in one container. Sizing follows the upstream
+                # chart's own defaults.
+                cpu: "2"
+                memory: 2Gi
+    service:
+      app:
+        controller: omada
+        # A real LAN address, not a ClusterIP: the switch and the access
+        # point inform the controller directly over the LAN and know nothing
+        # about cluster networking. Same mechanism as mqtt on 10.0.0.54.
+        #
+        # 10.0.0.55 continues the static block (.50-.54) and sits below the
+        # DHCP pool, which starts at 10.0.0.100.
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "10.0.0.55"
+        ports:
+          # Management UI (HTTPS, self-signed). Reached directly at
+          # https://10.0.0.55:8043 for now; putting it behind Authentik needs
+          # a BackendTLSPolicy for that self-signed cert, which is a separate
+          # change.
+          https:
+            port: 8043
+            protocol: TCP
+          http:
+            port: 8088
+            protocol: TCP
+          # Device discovery. UDP, and the reason this cannot be an HTTPRoute.
+          discovery:
+            port: 29810
+            protocol: UDP
+          # Adoption, upgrade and the manager/inform channels the devices use.
+          manager-v1:
+            port: 29811
+            protocol: TCP
+          adopt-v1:
+            port: 29812
+            protocol: TCP
+          upgrade-v1:
+            port: 29813
+            protocol: TCP
+          manage-v2:
+            port: 29814
+            protocol: TCP
+    persistence:
+      data:
+        existingClaim: omada-data
+        globalMounts:
+          - path: /opt/tplink/EAPController/data
+      logs:
+        existingClaim: omada-logs
+        globalMounts:
+          - path: /opt/tplink/EAPController/logs

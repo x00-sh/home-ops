@@ -282,6 +282,24 @@ spec:
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
 
+        # --- network management ---
+        - name: omada controller
+          group: infrastructure
+          # /api/info answers unauthenticated and returns the controller
+          # version, so this proves the JVM and its embedded MongoDB are both
+          # up — not merely that a port is listening. Plain HTTP on the manage
+          # port: the UI redirects to HTTPS, this API path does not.
+          #
+          # If this is down the switch and access point keep forwarding
+          # traffic exactly as configured; what is lost is management, stats
+          # and new adoptions. Worth knowing about, not worth panicking over.
+          url: "http://omada.network-management.svc.cluster.local:8088/api/info"
+          interval: 1m
+          conditions:
+            - "[STATUS] == 200"
+            - "[BODY].errorCode == 0"
+          alerts: [{ type: ntfy }]
+
         # --- infrastructure outside the cluster. Reachability only: these say
         # whether the box answers, not whether it is healthy. ---
         - name: nas (nfs)
