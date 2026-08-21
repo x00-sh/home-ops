@@ -53,6 +53,41 @@ spec:
           - backendRefs:
               - identifier: app
                 port: 7878
+      # A SECOND HTTPRoute on the same hostname, carrying no SecurityPolicy,
+      # so /api and /ping reach the app without Authentik in the way.
+      #
+      # This exists because Envoy Gateway's extAuth REPLACES the request path
+      # when it calls the outpost (it sends /outpost.goauthentik.io/auth/envoy
+      # and no X-Forwarded-Uri), so Authentik never learns the original path
+      # and its own `skip_path_regex` field cannot work here — it is only
+      # usable with Traefik/nginx-style forward auth, which pass the URI.
+      # Splitting the route is what actually works, and it is plain Gateway
+      # API rather than an EnvoyPatchPolicy.
+      #
+      # Gateway API resolves the overlap by match specificity, not by order:
+      # the longer PathPrefix wins, so /api goes here and everything else
+      # falls through to the gated route above. The API is NOT unprotected —
+      # radarr enforces its own X-Api-Key on every request, and this hostname
+      # is LAN/WireGuard-only on envoy-internal. This restores exactly the
+      # pre-Authentik posture for /api while the UI stays fully gated.
+      api:
+        hostnames:
+          - "radarr.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api
+              - path:
+                  type: PathPrefix
+                  value: /ping
+            backendRefs:
+              - identifier: app
+                port: 7878
     persistence:
       config:
         existingClaim: radarr-config

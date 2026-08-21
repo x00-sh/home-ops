@@ -25,20 +25,6 @@ data:
         attrs:
           external_host: https://sonarr.${SECRET_DOMAIN}
           mode: forward_single
-          # The API is exempted from forward auth, deliberately. These
-          # hostnames sit on envoy-internal (LAN/WireGuard only), and the
-          # *arr APIs enforce their own X-Api-Key on every request, so this
-          # restores exactly the pre-Authentik posture for /api while the UI
-          # stays fully gated. Without it, an API client gets a 302 to the
-          # Authentik login page instead of JSON -- an OAuth redirect no
-          # script can follow.
-          #
-          # Scoped to /api and /ping on purpose: not a blanket bypass, and
-          # NOT applied to sabnzbd or bazarr, whose APIs nothing outside the
-          # cluster calls.
-          skip_path_regex: |
-            ^/api/
-            ^/ping$
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
 
