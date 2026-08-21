@@ -9,6 +9,22 @@ spec:
     name: ntfy-alertmanager
   interval: 1h
   values:
+    # This network has no real IPv6 upstream (owner-confirmed). ntfy.sh is
+    # dual-stack and this pod's HTTP client does not reliably fall back to
+    # IPv4 when the IPv6 dial fails outright ("network is unreachable") —
+    # confirmed live: every logged publish attempt since this pod started
+    # failed this way, and the app logs no successful sends at all. Pinning
+    # the hostname here removes IPv6 from resolution entirely for this one
+    # external call, sidestepping whatever the client's fallback behaviour
+    # actually is rather than depending on it. Tradeoff: ntfy.sh's IPv4
+    # (159.203.148.75, single A record, confirmed via nslookup both
+    # in-cluster and externally) is hardcoded — if it ever changes, this
+    # starts failing outright (connection refused/timeout) rather than
+    # silently, which is at least loud.
+    defaultPodOptions:
+      hostAliases:
+        - ip: "159.203.148.75"
+          hostnames: ["ntfy.sh"]
     controllers:
       ntfy-alertmanager:
         replicas: 1
