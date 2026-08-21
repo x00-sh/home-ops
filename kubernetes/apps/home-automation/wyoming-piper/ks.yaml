@@ -1,0 +1,23 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: wyoming-piper
+spec:
+  dependsOn:
+    - name: home-automation-volume
+      namespace: home-automation
+  interval: 1h
+  path: ./kubernetes/apps/home-automation/wyoming-piper/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: home-automation
+  # The model/voice is fetched from HuggingFace on first start, before the
+  # Wyoming server binds its port. The default timeout is not long enough for
+  # that download on a cold volume, and a timeout here reports a failed
+  # reconcile for what is really just a slow first boot.
+  timeout: 15m
+  wait: true

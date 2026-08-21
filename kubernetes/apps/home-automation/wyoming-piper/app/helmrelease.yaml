@@ -1,0 +1,99 @@
+---
+# Text-to-speech for Home Assistant's Assist pipeline, the response half of the
+# pair with wyoming-whisper. Same shape and the same reasoning throughout:
+# Wyoming is raw TCP, so ClusterIP only, no route, no forward auth.
+#
+# Much cheaper than the speech-to-text side — Piper synthesises faster than
+# real time on a single core, so this needs no meaningful CPU headroom.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: wyoming-piper
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: wyoming-piper
+  interval: 1h
+  values:
+    controllers:
+      wyoming-piper:
+        replicas: 1
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/rhasspy/wyoming-piper
+              # Plain `2.4.2`, not `2.4.2-omnivoice`: the omnivoice variant is
+              # a different, much larger multi-speaker model set that this
+              # pipeline does not use.
+              tag: 2.4.2
+            args:
+              # Voices are named <locale>-<name>-<quality>. `medium` is the
+              # quality tier, not the size tier — the alternatives are `low`
+              # (noticeably robotic) and `high` (slower, marginal gain at
+              # smart-speaker audio quality).
+              - --voice
+              - en_US-lessac-medium
+              - --uri
+              - tcp://0.0.0.0:10200
+              - --data-dir
+              - /data
+              - --download-dir
+              - /data
+            env:
+              TZ: Europe/Copenhagen
+              HOME: /data
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 10200
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 10200
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+              # The voice download is far smaller than Whisper's model, but the
+              # same failure mode applies on a cold volume.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 10200
+                  periodSeconds: 10
+                  failureThreshold: 30
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: "2"
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: wyoming-piper
+        ports:
+          wyoming:
+            port: 10200
+            protocol: TCP
+    persistence:
+      data:
+        existingClaim: wyoming-piper-data
+        globalMounts:
+          - path: /data

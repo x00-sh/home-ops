@@ -1,0 +1,119 @@
+---
+# Speech-to-text for Home Assistant's Assist pipeline, over the Wyoming
+# protocol. Wyoming is raw TCP, not HTTP, so this gets no HTTPRoute and no
+# Authentik forward auth — it is a ClusterIP reached only from inside the
+# cluster, by Home Assistant, over cluster DNS. Anything that can open a TCP
+# socket to it can transcribe audio, which is why it stays off both gateways.
+#
+# CPU inference. The node is a 12-vCPU i5-1240P with no GPU, and small-int8 is
+# the size that stays under a few seconds for a short command; see the model
+# note on `--model` below before changing it.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: wyoming-whisper
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: wyoming-whisper
+  interval: 1h
+  values:
+    controllers:
+      wyoming-whisper:
+        replicas: 1
+        type: deployment
+        # The model cache is ReadWriteOnce on node-local storage, so two pods
+        # can never overlap.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/rhasspy/wyoming-whisper
+              tag: 3.6.0
+            args:
+              # Sizes go tiny/base/small/medium; -int8 is the quantised
+              # variant. small-int8 is ~0.5G resident and roughly 1-3s for a
+              # short utterance on this CPU. medium-int8 is markedly more
+              # accurate but 4-8s, which reads as broken for voice control.
+              - --model
+              - small-int8
+              # Pinned rather than left to auto-detect: detection costs a pass
+              # over the audio on every single utterance, and this pipeline is
+              # English-only.
+              - --language
+              - en
+              - --uri
+              - tcp://0.0.0.0:10300
+              - --data-dir
+              - /data
+              - --download-dir
+              - /data
+            env:
+              TZ: Europe/Copenhagen
+              # ctranslate2 and the HuggingFace downloader both fall back to
+              # $HOME for cache paths. Without this they try to write to a
+              # home directory that does not exist for uid 1000.
+              HOME: /data
+            probes:
+              # There is no HTTP health endpoint — Wyoming speaks its own
+              # protocol — so every probe is a TCP connect. The server binds
+              # only after the model is loaded, which makes a successful
+              # connect a genuine readiness signal rather than a proxy for one.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 10300
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 10300
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+              # First start downloads the model before binding. Without a
+              # startup probe the liveness probe kills the pod mid-download and
+              # it never finishes — 10 minutes of grace, then liveness takes
+              # over at its own cadence.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 10300
+                  periodSeconds: 10
+                  failureThreshold: 60
+            resources:
+              requests:
+                # Transcription is bursty: near-idle between utterances, then
+                # briefly multi-core. Requesting a low floor keeps it from
+                # holding reservation it does not use, while the limit stops a
+                # long transcription from crowding Home Assistant off the node.
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                cpu: "4"
+                memory: 2Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: wyoming-whisper
+        ports:
+          wyoming:
+            port: 10300
+            protocol: TCP
+    persistence:
+      data:
+        existingClaim: wyoming-whisper-data
+        globalMounts:
+          - path: /data

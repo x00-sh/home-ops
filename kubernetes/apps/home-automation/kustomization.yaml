@@ -15,4 +15,6 @@ resources:
   - ./zigbee2mqtt/ks.yaml
   - ./zigbee2mqtt/authentik/ks.yaml
   - ./home-assistant/ks.yaml
+  - ./wyoming-whisper/ks.yaml
+  - ./wyoming-piper/ks.yaml
   - ./config-backup/ks.yaml

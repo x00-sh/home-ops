@@ -59,3 +59,32 @@ spec:
   resources:
     requests:
       storage: 5Gi
+---
+# faster-whisper's model cache. The model is downloaded from HuggingFace on
+# first start, so this is a cache rather than state: deliberately NOT given a
+# ReplicationSource in config-backup, because losing it costs one slow startup
+# and nothing else. 5Gi is small-int8 (~0.5G) with room to try a larger model
+# without needing an expansion this storage class cannot do.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wyoming-whisper-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Piper's voice cache. Same reasoning as wyoming-whisper-data — re-downloadable,
+# not backed up. Voices are ~60-100M each; 2Gi holds many.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wyoming-piper-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 2Gi

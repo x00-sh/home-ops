@@ -263,6 +263,24 @@ spec:
           interval: 1m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
+        # Voice pipeline. Wyoming is a raw TCP protocol with no health
+        # endpoint, so these connect to the port the same way the mqtt check
+        # does. Both bind only after their model has loaded, so a successful
+        # connect means the service can actually answer, not merely that the
+        # process started. Voice failing is quiet — Assist just stops
+        # responding — which is exactly why it is monitored.
+        - name: wyoming whisper (stt)
+          group: home
+          url: "tcp://wyoming-whisper.home-automation.svc.cluster.local:10300"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: wyoming piper (tts)
+          group: home
+          url: "tcp://wyoming-piper.home-automation.svc.cluster.local:10200"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
 
         # --- infrastructure outside the cluster. Reachability only: these say
         # whether the box answers, not whether it is healthy. ---
