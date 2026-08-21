@@ -1,13 +1,10 @@
 ---
 # TP-Link Omada SDN controller, migrated from docker-compose on the dev VM.
 #
-# Deployed at replicas 0 on purpose. The data volume has to be seeded with a
-# copy of /opt/omada/data BEFORE this starts, or the controller initialises an
-# empty MongoDB and adopts nothing — and once it has written a fresh database,
-# seeding over the top is no longer clean. Scale to 1 only after the copy, and
-# then commit `replicas: 1` here as its own change: an imperative
-# `kubectl scale` is reverted by the next unrelated reconcile that touches
-# this file (see gitops-and-flux.md).
+# The data volume was seeded from /opt/omada/data on 2026-08-21 (docker
+# stopped first, so the MongoDB copy is consistent) and this was scaled up in
+# the same change that committed replicas: 1 — never by `kubectl scale`, which
+# the next unrelated reconcile silently reverts (see gitops-and-flux.md).
 #
 # NOT the upstream mbentley Helm chart. That chart requires an EXTERNAL
 # MongoDB (a pre-created omada-db-uri-secret, with the Bitnami mongodb chart
@@ -27,7 +24,7 @@ spec:
   values:
     controllers:
       omada:
-        replicas: 0
+        replicas: 1
         type: deployment
         # The MongoDB data directory is ReadWriteOnce on node-local storage;
         # two pods overlapping would mean two mongod processes over one
