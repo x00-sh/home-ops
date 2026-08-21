@@ -56,6 +56,26 @@ spec:
       limits:
         memory: 1024Mi
 
+    # Tuning by observation, as expected — first real Critical alert arrived
+    # within the first hour: "Drop and execute new binary in container"
+    # against /opt/cni/bin/cilium-cni, spawned by containerd directly on the
+    # host (Cilium's own CNI plugin invocation during pod network setup, not
+    # inside any tracked container — container_id showed "runtime",
+    # k8s_pod_name was null). Legitimate, not a compromise.
+    #
+    # The stock rule is explicitly designed for exactly this: it ships two
+    # empty override points, `known_drop_and_execute_containers` (a list,
+    # matched against container.image.repository — not useful here, this
+    # event has no real container context) and `known_drop_and_execute_
+    # activities` (a macro, stubbed to `(never_true)`). Redefining a
+    # macro/list by name in a later-loaded rules file replaces it outright
+    # (no `append: true` needed — that's only for `rule:` entries); files
+    # under customRules load after falco_rules.yaml via /etc/falco/rules.d.
+    customRules:
+      known-safe-drop-and-execute.yaml: |-
+        - macro: known_drop_and_execute_activities
+          condition: (proc.exepath=/opt/cni/bin/cilium-cni and proc.pname=containerd)
+
     # Falco's own stdout (every event, any priority) already reaches Loki for
     # free via Alloy, which tails every pod's logs cluster-wide — no separate
     # wiring needed for that. Falcosidekick is the second, curated path: it
