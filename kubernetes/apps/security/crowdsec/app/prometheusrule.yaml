@@ -1,0 +1,28 @@
+---
+# The actual security signal: CrowdSec matched a scanning/probing scenario
+# against Envoy's access logs. Detection-only (see helmrelease.yaml) — this
+# fires on something being noticed, not blocked.
+#
+# cs_alerts is a gauge (alert count by scenario, label `reason`), not a
+# counter, so this uses delta() rather than increase() to catch growth in
+# the last hour and self-clear once nothing new has matched for a while.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: crowdsec
+spec:
+  groups:
+    - name: crowdsec
+      rules:
+        - alert: CrowdSecNewAlerts
+          expr: delta(cs_alerts[1h]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CrowdSec: new {{ $labels.reason }} activity"
+            description: >-
+              CrowdSec matched new activity against Envoy's access logs for
+              scenario {{ $labels.reason }} in the last hour. Nothing was
+              blocked — no bouncer is attached. `kubectl -n security exec
+              deploy/crowdsec-lapi -- cscli alerts list` for details.

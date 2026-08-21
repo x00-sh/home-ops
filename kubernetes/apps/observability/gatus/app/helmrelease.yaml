@@ -203,6 +203,27 @@ spec:
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
 
+        # --- security tooling (Falco, CrowdSec). Both are detection-only —
+        # if either goes down, coverage is lost silently, same reasoning as
+        # the ntfy bridge check above. ---
+        - name: falco alert delivery
+          group: security
+          # Falco itself is a DaemonSet with no stable Service (see
+          # security/falco's own PrometheusRule) — this checks the one piece
+          # of it that does have one: falcosidekick, which is what actually
+          # gets Falco's events to Alertmanager. If this is down, Falco is
+          # still detecting but nothing is being told about it.
+          url: "tcp://falco-falcosidekick.security.svc.cluster.local:2801"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: crowdsec lapi
+          group: security
+          url: "tcp://crowdsec-lapi.security.svc.cluster.local:8080"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+
         # --- home automation. These are the ones that matter at 2am: when
         # this group goes red the lights stop working. ---
         - name: mqtt

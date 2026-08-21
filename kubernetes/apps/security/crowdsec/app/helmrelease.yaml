@@ -1,0 +1,92 @@
+---
+# HTTP-level anomaly/scan detection, reading Envoy Gateway's own JSON access
+# logs (both envoy-internal and envoy-external, network namespace) rather
+# than a separate log pipeline. Falco (./../falco/) covers syscall-level
+# detection inside containers; this covers request-pattern detection at the
+# gateway — path traversal probing, SQLi/XSS probing, wordpress/CVE
+# scanning, bad user agents, generic brute force.
+#
+# Deliberately DETECTION-ONLY. CrowdSec's Envoy remediation component (the
+# bouncer that would actually block a flagged IP at the gateway via an
+# ext_authz SecurityPolicy, same mechanism as Authentik's forward auth) is a
+# young, single-maintainer, explicitly "not tested in production" project as
+# of 2026-08. That's an acceptable risk for read-only detection feeding an
+# alert, not for something sitting in the live traffic path of every public
+# app. Revisit attaching it once this has run for a while with a real signal
+# to judge false-positive rate against — same reasoning as CPUThrottlingHigh
+# being tuned by observation rather than guessed up front.
+#
+# No CAPI enrollment (no ENROLL_KEY): this cluster's local scenarios don't
+# need CrowdSec's central API or the community blocklist, and enrolling
+# would mean depending on an external account for a homelab.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: crowdsec
+spec:
+  chart:
+    spec:
+      chart: crowdsec
+      version: 0.24.0
+      sourceRef:
+        kind: HelmRepository
+        name: crowdsecurity
+  interval: 1h
+  values:
+    # Controls how the agent's k8s log source strips the container runtime's
+    # own log-line wrapper before handing lines to parsers — the chart
+    # defaults this to "docker", which is wrong here (containerd, confirmed
+    # via `kubectl get nodes -o wide`) and would silently corrupt every line
+    # rather than error. Log reading itself is a hostPath mount of the
+    # node's /var/log (agent.hostVarLog, chart default true) — the same
+    # mechanism Alloy already uses, not a Kubernetes API log stream, so no
+    # extra RBAC is needed to read Envoy's logs from the network namespace.
+    container_runtime: containerd
+    agent:
+      acquisition:
+        # The chart turns this into a plain filesystem glob, NOT a regex —
+        # `filenames: /var/log/containers/{{ podName }}_{{ namespace }}_*.log`
+        # (see charts/crowdsec/templates/acquis-configmap.yaml) — so this
+        # needs shell-style `*`, not `.*`. A regex-style pattern here would
+        # match nothing and fail silently (no error, just an empty read).
+        #
+        # `program` is a label stamped on every matched line, not a filter:
+        # the trailing `*.log` also matches the pod's other container
+        # (shutdown-manager), which will be mislabeled `program: envoy` too.
+        # Harmless in practice — shutdown-manager logs nothing under normal
+        # operation — but the chart's acquisition model has no way to filter
+        # by container name, only by pod-name glob.
+        - namespace: network
+          podName: envoy-external-*
+          program: envoy
+          poll_without_inotify: true
+        - namespace: network
+          podName: envoy-internal-*
+          program: envoy
+          poll_without_inotify: true
+      env:
+        # yanis-kouidri/envoy-logs is a community parser (not yet merged
+        # into crowdsecurity/hub, tracked via a fork branch the hub index
+        # still resolves) built specifically for Envoy Gateway's default
+        # JSON access log format — verified field-for-field against a real
+        # captured log line from this cluster before committing to it. It
+        # pulls in crowdsecurity/base-http-scenarios, so the actual
+        # detection rules (http-probing, http-sqli-probing,
+        # http-path-traversal-probing, http-cve-probing, etc.) are the
+        # mainstream official ones, not community-authored.
+        - name: COLLECTIONS
+          value: yanis-kouidri/envoy
+      metrics:
+        enabled: true
+        podMonitor:
+          enabled: true
+    lapi:
+      persistentVolume:
+        data:
+          storageClassName: openebs-hostpath
+        config:
+          storageClassName: openebs-hostpath
+      metrics:
+        enabled: true
+        podMonitor:
+          enabled: true
