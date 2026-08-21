@@ -164,6 +164,31 @@ spec:
           manage-v2:
             port: 29814
             protocol: TCP
+          # Added for v6. The controller listens on 29815-29817 and warns in
+          # the UI ("ensure that devices can connect to TCP port 29817") if
+          # they are unreachable — v5 used only 29811-29814, so the upgrade
+          # silently outgrew the Service until these were added.
+          #   29815  device info and packet-capture uploads   (v5.9+)
+          #   29816  remote control terminal sessions          (v5.9+)
+          #   29817  device monitoring                         (v6.0+)
+          transfer:
+            port: 29815
+            protocol: TCP
+          terminal:
+            port: 29816
+            protocol: TCP
+          monitor:
+            port: 29817
+            protocol: TCP
+          # Device operations. Listening on UDP alongside 29810 discovery.
+          device-ops:
+            port: 19810
+            protocol: UDP
+          # NOT exposed: 27001/udp, which the Omada phone app uses to find a
+          # controller on the LAN. That is broadcast-based, and a pod cannot
+          # receive LAN broadcasts, so publishing it would imply a capability
+          # that cannot work. The app reaches this controller through Omada
+          # Cloud instead.
     route:
       # Single route key, so the chart renders it as `omada` rather than
       # `omada-app`. Adding a second key would rename this one and silently
