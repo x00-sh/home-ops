@@ -39,6 +39,29 @@ spec:
               fallthrough in-addr.arpa ip6.arpa
           - name: autopath
             parameters: "@kubernetes"
+          # Answer every AAAA query with an empty NOERROR (NODATA), so clients
+          # fall straight through to the A record.
+          #
+          # This network has no IPv6 upstream and Cilium runs with
+          # enable-ipv6=false, so no pod can reach an IPv6 address at all --
+          # but plenty of destinations (ghcr.io's blob CDN, ntfy.sh) publish
+          # AAAA records anyway. glibc clients never see them, because
+          # getaddrinfo's AI_ADDRCONFIG suppresses the AAAA lookup when the
+          # host has no IPv6 address. Go's resolver does not implement
+          # AI_ADDRCONFIG, so Go programs -- source-controller,
+          # ntfy-alertmanager -- do get those records and fail on them with
+          # "network is unreachable".
+          #
+          # Handing back an address nothing here can route to is never useful,
+          # so this is suppressed centrally rather than per app: the previous
+          # workaround was pinning hostAliases into individual charts, which
+          # does not scale and is impossible for charts that do not support it.
+          #
+          # Remove this if the LAN ever gains a real IPv6 upstream.
+          - name: template
+            parameters: IN AAAA .
+            configBlock: |-
+              rcode NOERROR
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache
