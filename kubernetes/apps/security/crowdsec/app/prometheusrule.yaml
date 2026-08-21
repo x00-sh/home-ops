@@ -1,11 +1,23 @@
 ---
-# The actual security signal: CrowdSec matched a scanning/probing scenario
-# against Envoy's access logs. Detection-only (see helmrelease.yaml) — this
-# fires on something being noticed, not blocked.
+# NOTE: this deliberately does NOT alert on "CrowdSec detected something" —
+# that would need cs_alerts/cs_active_decisions, which do not exist on this
+# chart's actual /metrics output (v1.7.8, confirmed by scraping the live
+# endpoint: only cs_bucket_*, cs_parser_hits_*, cs_node_hits_*, cs_lapi_*
+# are exposed — verified via `kubectl -n security exec crowdsec-agent-<pod>
+# -- curl localhost:6060/metrics`; an earlier draft of this rule referenced
+# metric names from CrowdSec docs that don't apply to this version and would
+# have silently never fired). Getting real detections into an alert needs
+# CrowdSec's own notification-http plugin instead — deliberately not wired
+# up yet, since it needs either a new secret this cluster's rules say must
+# be hand-edited (never written by an assistant) or a hand-built
+# Alertmanager-schema payload template, both real design decisions.
 #
-# cs_alerts is a gauge (alert count by scenario, label `reason`), not a
-# counter, so this uses delta() rather than increase() to catch growth in
-# the last hour and self-clear once nothing new has matched for a while.
+# What this rule covers instead: the pipeline being silently dead — the
+# same "silence looks like success" failure mode Configarr's rule guards
+# against. cs_parser_hits_total is a real counter (verified live) that only
+# grows while log lines are actually being read and handed to parsers; if
+# it stops moving, Envoy stopped writing logs, the acquisition glob stopped
+# matching, or the agent died in a way that still passes its liveness probe.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -14,15 +26,15 @@ spec:
   groups:
     - name: crowdsec
       rules:
-        - alert: CrowdSecNewAlerts
-          expr: delta(cs_alerts[1h]) > 0
-          for: 5m
+        - alert: CrowdSecNotProcessingLogs
+          expr: increase(cs_parser_hits_total{namespace="security"}[30m]) == 0
+          for: 30m
           labels:
             severity: warning
           annotations:
-            summary: "CrowdSec: new {{ $labels.reason }} activity"
+            summary: CrowdSec has stopped processing Envoy access logs
             description: >-
-              CrowdSec matched new activity against Envoy's access logs for
-              scenario {{ $labels.reason }} in the last hour. Nothing was
-              blocked — no bouncer is attached. `kubectl -n security exec
-              deploy/crowdsec-lapi -- cscli alerts list` for details.
+              No log lines have reached CrowdSec's parser in 30 minutes.
+              Envoy normally produces continuous traffic (Gatus alone
+              checks it every minute), so this means the pipeline is stuck,
+              not that traffic genuinely stopped.
