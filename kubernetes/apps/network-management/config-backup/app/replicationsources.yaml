@@ -1,0 +1,48 @@
+---
+# Nightly restic backup of the Omada controller's data directory.
+#
+# WHAT THIS PROTECTS: the embedded MongoDB holding the site configuration,
+# both adopted devices and their settings, and the controller identity
+# (omadacId). Losing it does not take the network down — the switch and AP
+# keep forwarding on their existing config — but rebuilding means re-adopting
+# every device and re-entering the site by hand.
+#
+# copyMethod is Direct because openebs-hostpath supports no CSI snapshots, so
+# the mover reads the live volume. That is a live MongoDB, so a restored
+# snapshot may need WiredTiger recovery on first start; acceptable here
+# because the controller is idle for most of the night and the alternative
+# (stopping it nightly) costs more than it buys.
+#
+# Runs at 03:00, after home-automation (02:00-02:10) and media (00:50-01:50).
+# This node has one disk to give.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: omada-data
+spec:
+  sourcePVC: omada-data
+  trigger:
+    schedule: "0 3 * * *"
+  restic:
+    repository: omada-data-restic
+    copyMethod: Direct
+    pruneIntervalDays: 14
+    retain:
+      daily: 7
+      weekly: 4
+      monthly: 6
+    cacheCapacity: 2Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    # Matches the uid the Omada image owns its data directory as. The
+    # container starts as root and drops to PUID/PGID 1000 itself, but the
+    # files on disk are 1000:1000, so the mover does not need root.
+    moverSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+    moverVolumes:
+      - mountPath: repo
+        volumeSource:
+          persistentVolumeClaim:
+            claimName: network-management-config-restic

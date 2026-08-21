@@ -17,3 +17,4 @@ resources:
   - ./namespace.yaml
   - ./network-management-volume/ks.yaml
   - ./omada/ks.yaml
+  - ./config-backup/ks.yaml

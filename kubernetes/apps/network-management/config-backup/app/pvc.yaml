@@ -1,0 +1,19 @@
+---
+# Holds the restic repository for this namespace. On the NAS rather than the
+# node, which is the entire point: the node's disk is the thing this backup
+# exists to survive.
+#
+# Separate from the media and home-automation repositories for the same reason
+# those are separate from each other — one owner per repository tree. These
+# movers run as uid 1000, matching the ownership the Omada image gives its own
+# data directory.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: network-management-config-restic
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: nfs-backup
+  resources:
+    requests:
+      storage: 20Gi
