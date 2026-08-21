@@ -20,7 +20,7 @@ kind: ReplicationSource
 metadata:
   name: omada-data
 spec:
-  sourcePVC: omada-data
+  sourcePVC: omada-data-v6
   trigger:
     schedule: "0 3 * * *"
   restic:

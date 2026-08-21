@@ -39,13 +39,19 @@ spec:
           app:
             image:
               repository: docker.io/mbentley/omada-controller
-              # Pinned to the version already running on docker
-              # (confirmed live via /api/info), so seeding the existing data
-              # is like-for-like with no schema migration. `latest` currently
-              # resolves to this same digest, but 6.x exists and Omada cannot
-              # be downgraded — an unpinned tag would eventually carry the
-              # controller across a major version unattended.
-              tag: 5.15.24.19
+              # v6 requires MongoDB 8; v5 ran MongoDB 3.6. Upgraded
+              # 2026-08-21 by backup/restore onto the fresh omada-data-v6
+              # volume, NOT in place — see that PVC's comment.
+              #
+              # Note upstream deliberately keeps `latest` on the 5.15 line
+              # ("the inability for me to perform a migration for v5 to v6
+              # without manual user intervention"), so an unpinned tag is
+              # doubly wrong here: it would neither upgrade nor stay put
+              # predictably. Omada cannot be downgraded.
+              #
+              # MongoDB 8 requires AVX on amd64 — verified present on this
+              # node (avx, avx2) before the jump.
+              tag: 6.2.14.11
             env:
               TZ: Europe/Copenhagen
               # Carried over verbatim from docker-compose. The image starts as
@@ -99,13 +105,15 @@ spec:
             resources:
               requests:
                 cpu: 200m
-                memory: 1Gi
+                memory: 1536Mi
               limits:
-                # Heavier than anything else in this cluster: it is a JVM and
-                # a MongoDB in one container. Sizing follows the upstream
-                # chart's own defaults.
+                # Heavier than anything else in this cluster: a JVM and a
+                # MongoDB in one container. Raised from 2Gi for the v6 jump —
+                # v5 already sat at ~1500Mi against that limit, and MongoDB 8
+                # uses more than 3.6 did. The node has the room (36% actual
+                # memory use); it is the sum of *limits* that reads high.
                 cpu: "2"
-                memory: 2Gi
+                memory: 4Gi
     service:
       app:
         controller: omada
@@ -182,7 +190,7 @@ spec:
           - path: /cert
             readOnly: true
       data:
-        existingClaim: omada-data
+        existingClaim: omada-data-v6
         globalMounts:
           - path: /opt/tplink/EAPController/data
       logs:

@@ -29,3 +29,24 @@ spec:
   resources:
     requests:
       storage: 2Gi
+---
+# The v6 controller's data directory. A SEPARATE volume from omada-data on
+# purpose: Omada cannot be downgraded — moving a database to a newer
+# controller and back "will break the database and require a full reinstall"
+# — so the v5→v6 upgrade was done as backup/restore onto a fresh volume
+# rather than an in-place MongoDB 3.6→8 migration. The old volume is left
+# untouched, which turns an impossible downgrade into switching the claim
+# back.
+#
+# 10Gi rather than 5Gi: MongoDB 8 stores more than 3.6 did for the same data,
+# and openebs-hostpath cannot expand a volume after the fact.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omada-data-v6
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
