@@ -12,4 +12,9 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: network-management
-  wait: true
+  # Must stay false, for the same reason as media-volume and
+  # home-automation-volume: openebs-hostpath is WaitForFirstConsumer, so these
+  # PVCs stay Pending until a pod mounts them. With wait: true this
+  # Kustomization never goes Ready and every app that depends on it blocks
+  # forever.
+  wait: false
