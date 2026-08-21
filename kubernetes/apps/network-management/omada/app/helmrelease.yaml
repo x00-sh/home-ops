@@ -25,6 +25,11 @@ spec:
     controllers:
       omada:
         replicas: 1
+        # Omada reads /cert only at startup, so a renewed certificate needs a
+        # pod restart to reach the keystore. Reloader is already in the
+        # cluster; this makes that automatic rather than a diary entry.
+        annotations:
+          reloader.stakater.com/auto: "true"
         type: deployment
         # The MongoDB data directory is ReadWriteOnce on node-local storage;
         # two pods overlapping would mean two mongod processes over one
@@ -113,19 +118,16 @@ spec:
         type: LoadBalancer
         annotations:
           lbipam.cilium.io/ips: "10.0.0.55"
-          # k8s-gateway watches Services but does NOT publish them by bare
-          # name — it needs this annotation, which is why mqtt.${SECRET_DOMAIN}
-          # does not resolve either. With it, omada.${SECRET_DOMAIN} answers
-          # 10.0.0.55 from the LAN through Unbound's split-horizon forward.
+          # No external-dns annotation here on purpose: the HTTPRoute below
+          # now owns omada.${SECRET_DOMAIN}, pointing it at the internal
+          # gateway so the UI is reachable without a port number. The devices
+          # are unaffected — DHCP option 138 hands out an IP address
+          # (10.0.0.55), never a hostname — which is what lets the human plane
+          # and the device plane resolve to different places.
           #
-          # This matters more than convenience: the controller's own
-          # "Controller Hostname/IP" was already set to omada.${SECRET_DOMAIN}
-          # by a previous owner-configuration, but the name had never resolved
-          # anywhere, so the switch and AP fell back to informing the docker
-          # host's IP. Making the name real is what lets them follow the
-          # controller here without being touched, and makes any future move a
-          # DNS change rather than a device reconfiguration.
-          external-dns.alpha.kubernetes.io/hostname: "omada.${SECRET_DOMAIN}"
+          # The controller's own "Controller Hostname/IP" was set to
+          # 10.0.0.55 for the same reason: the hostname no longer answers on
+          # the device ports.
         ports:
           # Management UI (HTTPS, self-signed). Reached directly at
           # https://10.0.0.55:8043 for now; putting it behind Authentik needs
@@ -154,7 +156,31 @@ spec:
           manage-v2:
             port: 29814
             protocol: TCP
+    route:
+      # Single route key, so the chart renders it as `omada` rather than
+      # `omada-app`. Adding a second key would rename this one and silently
+      # detach anything targeting it by name — see authentik.md's Lessons.
+      app:
+        hostnames:
+          - "omada.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                # 8043, not 8088: see backendtlspolicy.yaml for why the
+                # plain-HTTP port cannot be used as a backend.
+                port: 8043
     persistence:
+      # Read by the entrypoint at startup and imported into Omada's keystore.
+      cert:
+        type: secret
+        name: omada-tls
+        globalMounts:
+          - path: /cert
+            readOnly: true
       data:
         existingClaim: omada-data
         globalMounts:

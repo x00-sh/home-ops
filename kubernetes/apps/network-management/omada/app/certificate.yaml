@@ -1,0 +1,32 @@
+---
+# A real certificate for Omada itself, not just for the gateway in front of
+# it. The image's entrypoint imports /cert/tls.{crt,key} into its Java
+# keystore at startup, so mounting this makes the controller serve a genuine
+# Let's Encrypt certificate on 8043 instead of its built-in self-signed one
+# (CN=localhost, O=TP-Link, SAN DNS:Omada).
+#
+# That is what lets Envoy validate the backend with
+# wellKnownCACertificates: System — no pinned CA, nothing to rotate by hand.
+# Trusting the self-signed cert instead would mean pinning a certificate that
+# regenerates whenever the container is rebuilt.
+#
+# Deliberately NOT given the 160h duration the gateway certificate uses.
+# Envoy hot-reloads certificates; Omada only reads /cert at startup, so every
+# renewal costs a pod restart (~2 minutes, during which the switch and AP
+# disconnect and reconnect). The default 90-day lifetime makes that a
+# two-monthly event rather than a weekly one.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: omada-tls
+spec:
+  secretName: omada-tls
+  dnsNames:
+    - "omada.${SECRET_DOMAIN}"
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-production
+  privateKey:
+    algorithm: ECDSA
+  usages:
+    - digital signature

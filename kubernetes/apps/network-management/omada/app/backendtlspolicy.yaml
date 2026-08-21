@@ -1,0 +1,22 @@
+---
+# Envoy must speak HTTPS to Omada, not HTTP. The controller's plain-HTTP port
+# (8088) answers every UI request with a 302 to https://<host>:8043 — it
+# honours the Host header but hard-codes the port — so an HTTP backend would
+# bounce clients straight back out of the proxy onto the LoadBalancer.
+#
+# Because the pod now serves a real Let's Encrypt certificate for
+# omada.${SECRET_DOMAIN} (see certificate.yaml), validation needs no pinned
+# CA: the public trust store is enough.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: omada
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: omada
+      sectionName: https
+  validation:
+    hostname: "omada.${SECRET_DOMAIN}"
+    wellKnownCACertificates: System
