@@ -9,6 +9,10 @@ spec:
       namespace: network-management
   interval: 1h
   path: ./kubernetes/apps/network-management/omada/app
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
   prune: true
   sourceRef:
     kind: GitRepository

@@ -116,6 +116,19 @@ spec:
         type: LoadBalancer
         annotations:
           lbipam.cilium.io/ips: "10.0.0.55"
+          # k8s-gateway watches Services but does NOT publish them by bare
+          # name — it needs this annotation, which is why mqtt.${SECRET_DOMAIN}
+          # does not resolve either. With it, omada.${SECRET_DOMAIN} answers
+          # 10.0.0.55 from the LAN through Unbound's split-horizon forward.
+          #
+          # This matters more than convenience: the controller's own
+          # "Controller Hostname/IP" was already set to omada.${SECRET_DOMAIN}
+          # by a previous owner-configuration, but the name had never resolved
+          # anywhere, so the switch and AP fell back to informing the docker
+          # host's IP. Making the name real is what lets them follow the
+          # controller here without being touched, and makes any future move a
+          # DNS change rather than a device reconfiguration.
+          external-dns.alpha.kubernetes.io/hostname: "omada.${SECRET_DOMAIN}"
         ports:
           # Management UI (HTTPS, self-signed). Reached directly at
           # https://10.0.0.55:8043 for now; putting it behind Authentik needs
