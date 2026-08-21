@@ -1,0 +1,30 @@
+---
+# Repo rule 5 says every new app gets a Gatus check in the same change. Falco
+# is a DaemonSet with no HTTP surface of its own (same shape of problem as
+# Configarr in kubernetes/apps/media/configarr/app/prometheusrule.yaml) — a
+# PrometheusRule off kube-state-metrics, which this cluster already scrapes,
+# instead of a fabricated Gatus endpoint.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: falco
+spec:
+  groups:
+    - name: falco
+      rules:
+        # The failure that matters most: a node silently running with no
+        # runtime detection coverage at all. Falco going down produces no
+        # symptom anywhere else — nothing else on this node checks for it.
+        - alert: FalcoDaemonSetNotReady
+          expr: >-
+            kube_daemonset_status_number_ready{namespace="security", daemonset="falco"}
+            < kube_daemonset_status_desired_number_scheduled{namespace="security", daemonset="falco"}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Falco is not running on every node
+            description: >-
+              Falco's DaemonSet has fewer ready pods than desired nodes.
+              Every node without a running Falco pod has zero syscall-level
+              intrusion detection, and this fails silently.

@@ -1,0 +1,83 @@
+---
+# Runtime/syscall intrusion detection via eBPF. Watches every syscall on the
+# node for behaviour indicative of a compromise or a vulnerability scan being
+# run from inside a container (shell in a container with no shell, unexpected
+# outbound connections, writes below a binary dir, etc) — a different layer
+# from Gatus/Prometheus, which only know whether a service answers.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: falco
+spec:
+  chart:
+    spec:
+      chart: falco
+      version: 9.1.0
+      sourceRef:
+        kind: HelmRepository
+        name: falcosecurity
+  interval: 1h
+  values:
+    tty: false
+
+    # Explicit modern_ebpf, not the `auto` default. `auto` falls back to
+    # building/loading a kernel module (driver.kind: kmod) if it can't use
+    # eBPF, which needs a privileged container and DKMS-style compilation —
+    # a bad fit for Talos's immutable, module-averse design. The node's
+    # kernel (6.18, confirmed via `kubectl get nodes -o wide`) is new enough
+    # for BTF-based CO-RE eBPF, and Cilium already proves eBPF itself works
+    # here. leastPrivileged trades the kmod driver's full `privileged: true`
+    # for four specific capabilities (BPF, PERFMON, SYS_RESOURCE, SYS_PTRACE).
+    driver:
+      kind: modern_ebpf
+      modernEbpf:
+        leastPrivileged: true
+
+    collectors:
+      containerEngine:
+        engines:
+          # Talos never runs Docker.
+          docker:
+            enabled: false
+          containerd:
+            enabled: true
+            # The chart's own default (/run/host-containerd/containerd.sock)
+            # is not where Talos keeps the socket — confirmed via
+            # `talosctl ls /var/run/` that containerd lives at the
+            # conventional /run/containerd on this node. Getting this wrong
+            # doesn't break syscall detection, just container-name/image
+            # enrichment on alerts.
+            sockets: ["/run/containerd/containerd.sock"]
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1024Mi
+
+    # Falco's own stdout (every event, any priority) already reaches Loki for
+    # free via Alloy, which tails every pod's logs cluster-wide — no separate
+    # wiring needed for that. Falcosidekick is the second, curated path: it
+    # posts Warning-and-above events straight into the Alertmanager this
+    # cluster already has, reusing the existing Alertmanager -> ntfy bridge
+    # instead of standing up a third notification mechanism.
+    falcosidekick:
+      enabled: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+      config:
+        alertmanager:
+          hostport: http://kube-prometheus-stack-alertmanager.observability.svc.cluster.local:9093
+          # kube-prometheus-stack's Alertmanager is v2-API-only; falcosidekick
+          # defaults to /api/v1/alerts, which 404s against it.
+          endpoint: /api/v2/alerts
+          # Falco's stock ruleset fires plenty at Notice/Informational for
+          # completely normal container behaviour. Warning-and-above only —
+          # revisit after seeing real alert volume, same as CPUThrottlingHigh
+          # was tuned by observation rather than guessed up front.
+          minimumpriority: warning
