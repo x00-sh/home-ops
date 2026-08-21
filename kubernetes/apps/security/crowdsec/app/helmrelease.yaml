@@ -33,6 +33,67 @@ spec:
         name: crowdsecurity
   interval: 1h
   values:
+    # Real "CrowdSec detected something" alerts. No Prometheus metric
+    # reflects a new alert/decision in this chart version (confirmed by
+    # scraping /metrics live — see prometheusrule.yaml's comment), so this
+    # uses CrowdSec's own notification-http plugin instead, posting straight
+    # to Alertmanager's v2 API — the same pattern falcosidekick uses for
+    # Falco, reusing the existing Alertmanager -> ntfy path rather than a new
+    # secret or a new notification mechanism. Verified with `cscli
+    # notifications test http_default` against the running LAPI before
+    # trusting the template — its synthetic test alert has a real non-nil
+    # Source (scope "Ip", value "10.10.10.10") and CreatedAt already in
+    # RFC3339, both confirmed from CrowdSec's own cscli source
+    # (cmd/crowdsec-cli/clinotifications/notifications.go), so the template
+    # below is exercised the same way a real alert would be.
+    config:
+      notifications:
+        http.yaml: |
+          type: http
+          name: http_default
+          log_level: info
+          group_wait: 30s
+          group_threshold: 5
+          url: http://kube-prometheus-stack-alertmanager.observability.svc.cluster.local:9093/api/v2/alerts
+          method: POST
+          headers:
+            Content-Type: application/json
+          # toJson (a CrowdSec template helper, not stdlib) handles string
+          # escaping safely — hand-interpolating scenario names/IPs into raw
+          # JSON without it risks a malformed body on any value containing a
+          # quote. GetScenario/GetScope/GetValue are models.Alert's own
+          # nil-safe accessors (pkg/models/helpers.go), not raw field access.
+          format: |
+            [
+            {{range $i, $a := .}}{{if $i}},{{end}}{
+              "labels": {
+                "alertname": {{$a.GetScenario | toJson}},
+                "severity": "warning",
+                "source": "crowdsec"
+              },
+              "annotations": {
+                "summary": {{printf "CrowdSec: %s matched %s %s" $a.GetScenario $a.GetScope $a.GetValue | toJson}}
+              },
+              "startsAt": {{$a.CreatedAt | toJson}}
+            }{{end}}
+            ]
+      # Matches the chart's own commented-out default example almost
+      # verbatim (config/profiles.yaml upstream) — every scenario here is
+      # IP-scoped (the envoy-logs parser sets source_ip from
+      # x-forwarded-for), so Alert.GetScope() == "Ip" covers all of them.
+      # decisions: is inert without a bouncer attached (nothing polls LAPI
+      # to enforce it) — kept anyway so this doesn't need touching if a
+      # bouncer is ever added later.
+      profiles.yaml: |
+        name: default_ip_remediation
+        filters:
+          - Alert.Remediation == true && Alert.GetScope() == "Ip"
+        decisions:
+          - type: ban
+            duration: 4h
+        notifications:
+          - http_default
+        on_success: break
     # Controls how the agent's k8s log source strips the container runtime's
     # own log-line wrapper before handing lines to parsers — the chart
     # defaults this to "docker", which is wrong here (containerd, confirmed
