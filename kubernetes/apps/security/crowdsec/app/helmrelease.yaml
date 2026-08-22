@@ -63,6 +63,14 @@ spec:
           # JSON without it risks a malformed body on any value containing a
           # quote. GetScenario/GetScope/GetValue are models.Alert's own
           # nil-safe accessors (pkg/models/helpers.go), not raw field access.
+          # `description` adds the GCP-style source context (country/ASN)
+          # that was missing from the plain ntfy notification — $a.Source.Cn/
+          # AsNumber/AsName are read directly (no Get* accessor exists for
+          # them) because they're plain, non-pointer strings on models.Source
+          # (pkg/models/source.go) and Source itself is a required,
+          # schema-validated field on Alert, so it's never nil by the time a
+          # notification fires — confirmed against the pinned crowdsec
+          # v1.7.8 source, matching this HelmRelease's own LAPI image tag.
           format: |
             [
             {{range $i, $a := .}}{{if $i}},{{end}}{
@@ -72,7 +80,8 @@ spec:
                 "source": "crowdsec"
               },
               "annotations": {
-                "summary": {{printf "CrowdSec: %s matched %s %s" $a.GetScenario $a.GetScope $a.GetValue | toJson}}
+                "summary": {{printf "CrowdSec: %s matched %s %s" $a.GetScenario $a.GetScope $a.GetValue | toJson}},
+                "description": {{printf "Source %s — %s, AS%s %s." $a.GetValue $a.Source.Cn $a.Source.AsNumber $a.Source.AsName | toJson}}
               },
               "startsAt": {{$a.CreatedAt | toJson}}
             }{{end}}
