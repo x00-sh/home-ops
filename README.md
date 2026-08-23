@@ -53,23 +53,35 @@ graph TB
 
     subgraph sec["security"]
         authentik["Authentik"]
+        falco["Falco (syscall IDS)"]
+        crowdsec["CrowdSec (HTTP scan/probe IDS)"]
     end
 
     extgw --> authentik
     intgw --> authentik
 
+    subgraph netmgmt["network-management"]
+        omada["Omada SDN controller"]
+    end
+
+    intgw --> omada
+
     subgraph apps["media / home-automation / observability"]
         media["*arr stack, Jellyfin, Seerr"]
-        home["Home Assistant, Zigbee2MQTT"]
-        obs["Prometheus, Grafana, Loki, Gatus"]
+        home["Home Assistant, Zigbee2MQTT,<br/>wyoming-whisper/piper (Assist voice)"]
+        obs["Prometheus, Grafana, Loki, Gatus,<br/>Alertmanager&rarr;ntfy"]
     end
 
     authentik -->|"forward-auth / OIDC"| media
     authentik -->|"forward-auth"| home
     authentik -->|"forward-auth / OIDC"| obs
 
+    falco -->|"alerts"| obs
+    crowdsec -->|"alerts"| obs
+
     kustomize -.->|"applies manifests"| net
     kustomize -.->|"applies manifests"| sec
+    kustomize -.->|"applies manifests"| netmgmt
     helmctl -.->|"installs charts"| apps
     helmctl -.->|"installs charts"| sec
 
@@ -79,6 +91,7 @@ graph TB
     end
 
     apps --> storage
+    netmgmt --> storage
     sec --> db
 ```
 
@@ -104,16 +117,17 @@ an app gets is a one-line `parentRefs` choice plus, where needed, one
 
 ### What's running, by namespace
 
-| Namespace         | Apps                                                                                                                |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `network`         | Cilium (CNI), Envoy Gateway, k8s-gateway (DNS), cloudflare-tunnel, external-dns                                     |
-| `security`        | Authentik, External Secrets Operator, 1Password Connect                                                             |
-| `database`        | CloudNativePG — one Postgres instance, used only by Authentik                                                       |
-| `storage`         | OpenEBS LocalPV (node NVMe, default StorageClass), csi-driver-nfs, Volsync (restic backups), snapshot-controller    |
-| `media`           | Sonarr, Radarr, Prowlarr, Bazarr, SABnzbd, Jellyfin, Seerr, Configarr                                               |
-| `home-automation` | Home Assistant, Zigbee2MQTT, Mosquitto                                                                              |
-| `observability`   | kube-prometheus-stack (Prometheus/Grafana/Alertmanager), Loki + Alloy, Gatus, Headlamp, an Alertmanager→ntfy bridge |
-| `flux-system`     | flux-operator, flux-instance and the four GitOps Toolkit controllers                                                |
+| Namespace            | Apps                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `network`            | Cilium (CNI), Envoy Gateway, k8s-gateway (DNS), cloudflare-tunnel, external-dns                                     |
+| `security`           | Authentik, Falco (syscall IDS), CrowdSec (HTTP scan/probe detection), External Secrets Operator, 1Password Connect  |
+| `database`           | CloudNativePG — one Postgres instance, used only by Authentik                                                       |
+| `storage`            | OpenEBS LocalPV (node NVMe, default StorageClass), csi-driver-nfs, Volsync (restic backups), snapshot-controller    |
+| `media`              | Sonarr, Radarr, Prowlarr, Bazarr, SABnzbd, Jellyfin, Seerr, Configarr                                               |
+| `home-automation`    | Home Assistant, Zigbee2MQTT, Mosquitto, wyoming-whisper/wyoming-piper (Assist voice pipeline)                       |
+| `network-management` | Omada SDN controller                                                                                                |
+| `observability`      | kube-prometheus-stack (Prometheus/Grafana/Alertmanager), Loki + Alloy, Gatus, Headlamp, an Alertmanager→ntfy bridge |
+| `flux-system`        | flux-operator, flux-instance and the four GitOps Toolkit controllers                                                |
 
 Every other app keeps SQLite on local NVMe rather than migrating to
 Postgres — it performs well on NVMe and avoids a migration that buys
