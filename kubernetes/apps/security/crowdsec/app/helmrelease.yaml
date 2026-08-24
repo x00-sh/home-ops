@@ -187,6 +187,21 @@ spec:
         podMonitor:
           enabled: true
     lapi:
+      # Second chart gap found live: templates/tls/{agent,bouncer}-certificate.yaml
+      # issue client certs with organizationalUnits agent-ou/bouncer-ou, but
+      # nothing in this chart ever sets AGENTS_ALLOWED_OU/BOUNCERS_ALLOWED_OU
+      # (grepped the full chart source — zero references). LAPI's server-side
+      # OU allowlist defaults to empty, so every client cert is rejected
+      # outright: "client certificate OU [agent-ou] doesn't match expected OU
+      # []", confirmed live on this cluster (the agent's own login attempt to
+      # LAPI failing). docker_start.sh does apply these unconditionally on
+      # every boot (not gated behind the chart's own "first run" checks), so
+      # setting them here is enough — no PVC reset needed.
+      env:
+        - name: AGENTS_ALLOWED_OU
+          value: agent-ou
+        - name: BOUNCERS_ALLOWED_OU
+          value: bouncer-ou
       persistentVolume:
         data:
           storageClassName: openebs-hostpath
