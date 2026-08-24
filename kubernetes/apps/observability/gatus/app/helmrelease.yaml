@@ -219,7 +219,24 @@ spec:
           alerts: [{ type: ntfy }]
         - name: crowdsec lapi
           group: security
-          url: "tcp://crowdsec-lapi.security.svc.cluster.local:8080"
+          # Was pointed at crowdsec-lapi.security.svc.cluster.local, which
+          # has never existed — the actual Service is crowdsec-service (see
+          # `kubectl get svc -n security`). This check has been silently
+          # failing (success=false in the gatus logs) since it was added;
+          # fixed in the same change that gives LAPI a second, LAN-facing
+          # address below.
+          url: "tcp://crowdsec-service.security.svc.cluster.local:8080"
+          interval: 1m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: crowdsec lapi (opnsense bouncer endpoint)
+          group: security
+          # The LoadBalancer address OPNsense's firewall bouncer connects to
+          # (kubernetes/apps/security/crowdsec/app/helmrelease.yaml,
+          # lapi.service) — separate from the ClusterIP check above since
+          # this is a distinct network path (LAN, not in-cluster) that can
+          # fail independently (Cilium LB-IPAM, the LAN route itself).
+          url: "tcp://10.0.0.56:8080"
           interval: 1m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]

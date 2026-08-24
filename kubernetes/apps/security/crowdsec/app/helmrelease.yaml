@@ -207,6 +207,15 @@ spec:
           storageClassName: openebs-hostpath
         config:
           storageClassName: openebs-hostpath
+      # OPNsense's firewall bouncer runs on the box itself, outside the
+      # cluster's pod network, so it needs a real LAN address the same way
+      # Mosquitto does for Frigate (see home-automation/mqtt) — in-cluster
+      # clients still resolve crowdsec-service via ClusterIP and never see
+      # this IP.
+      service:
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "10.0.0.56"
       metrics:
         enabled: true
         podMonitor:
