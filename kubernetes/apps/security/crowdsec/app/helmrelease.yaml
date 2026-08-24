@@ -33,6 +33,31 @@ spec:
         name: crowdsecurity
   interval: 1h
   values:
+    # mTLS between agent and LAPI instead of the chart's default
+    # username/token self-registration. The default flow has the agent's
+    # init container call `cscli lapi register --machine "$USERNAME"` on
+    # every pod start, using the pod's own (stable) name as the machine
+    # identity — but its credentials live in an emptyDir, wiped on every
+    # sandbox recreation (node reboot, eviction, etc.). LAPI's machine
+    # record persists across that, so every restart re-registers the same
+    # name against a record that's still there, and the agent crash-loops
+    # on a 403 "user already exist" until someone runs `cscli machines
+    # delete` by hand — hit for real on 2026-08-24 after a node power
+    # cycle.
+    #
+    # With tls.enabled, the chart switches the agent's init container to a
+    # plain `wait-for-lapi` (no cscli register call at all — see
+    # charts/crowdsec/templates/agent-daemonSet.yaml, gated on
+    # `tls.agent.tlsClientAuth`, itself default-true) and LAPI authorizes
+    # the agent by its client certificate instead of a per-pod machine
+    # record. The cert is a cert-manager Secret shared across every
+    # instance of the DaemonSet pod, not something regenerated per restart,
+    # so there's no identity to collide with. tls.certManager.issuerRef is
+    # deliberately left unset: the chart then provisions its own
+    # self-signed root ClusterIssuer and CA scoped to this release, with no
+    # dependency on any ClusterIssuer already in this cluster.
+    tls:
+      enabled: true
     # Real "CrowdSec detected something" alerts. No Prometheus metric
     # reflects a new alert/decision in this chart version (confirmed by
     # scraping /metrics live — see prometheusrule.yaml's comment), so this
