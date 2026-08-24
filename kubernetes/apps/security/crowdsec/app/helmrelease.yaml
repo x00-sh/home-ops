@@ -16,9 +16,15 @@
 # to judge false-positive rate against — same reasoning as CPUThrottlingHigh
 # being tuned by observation rather than guessed up front.
 #
-# No CAPI enrollment (no ENROLL_KEY): this cluster's local scenarios don't
-# need CrowdSec's central API or the community blocklist, and enrolling
-# would mean depending on an external account for a homelab.
+# No CAPI *enrollment* (no ENROLL_KEY, no link to a CrowdSec Console
+# account) — that's a separate thing from the free community blocklist
+# pull, which LAPI does by default and this cluster deliberately keeps
+# (confirmed live 2026-08-24: DISABLE_ONLINE_API is intentionally unset on
+# lapi.env, unlike agent.env where it's "true" — the agent has no business
+# reaching CAPI itself, but LAPI pulling the shared blocklist is wanted).
+# Do NOT add DISABLE_ONLINE_API to lapi.env to "fix" this — it would
+# silently drop ~21k CAPI-origin decisions the OPNsense firewall bouncer
+# is enforcing. See areas/security.md's Decisions and Incidents.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
