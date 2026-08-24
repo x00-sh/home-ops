@@ -58,6 +58,17 @@ spec:
     # dependency on any ClusterIssuer already in this cluster.
     tls:
       enabled: true
+      certManager:
+        # Chart bug: templates/tls/{agent,bouncer}-certificate.yaml always
+        # emit a `secretTemplate:` key, only its children (annotations/
+        # labels) are conditional — with both left empty that key renders
+        # as a literal YAML null, which cert-manager's CRD (a structural
+        # schema requiring `object`, not nullable) rejects outright, red
+        # Flux reconcile confirmed live on this cluster. Any non-empty
+        # child avoids the empty block; this label is otherwise inert.
+        secretTemplate:
+          labels:
+            app.kubernetes.io/managed-by: crowdsec-helm
     # Real "CrowdSec detected something" alerts. No Prometheus metric
     # reflects a new alert/decision in this chart version (confirmed by
     # scraping /metrics live — see prometheusrule.yaml's comment), so this
