@@ -9,4 +9,5 @@ resources:
   - ./httproute.yaml
   - ./prometheusrule.yaml
   - ./podmonitor.yaml
+  - ./scrapeconfig.yaml
   - ./securitypolicy.yaml

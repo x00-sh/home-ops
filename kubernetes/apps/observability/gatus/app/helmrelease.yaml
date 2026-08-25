@@ -333,6 +333,15 @@ spec:
           interval: 2m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
+        - name: proxmox (node_exporter)
+          group: infrastructure
+          # Catches the exporter itself going down independent of the host
+          # freeze it exists to help diagnose — see the ScrapeConfig in
+          # kube-prometheus-stack for why this runs on the bare host.
+          url: "tcp://10.0.0.5:9100"
+          interval: 2m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
         - name: proxmox nuc
           group: infrastructure
           # The host running this cluster. When it wedged on 2026-08-13 its web
