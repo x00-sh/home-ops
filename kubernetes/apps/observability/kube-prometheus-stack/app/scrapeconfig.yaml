@@ -1,25 +1,30 @@
 ---
-# node_exporter runs directly on the Proxmox host, not inside the Talos
-# guest — the host and the guest are different views (see the 2026-08-24/25
-# node freeze in storage-and-backups.md, where node_load1 froze on the
-# guest's own kernel while the host underneath it had already gone dark).
+# node_exporter runs directly on both Proxmox hosts, not inside any guest —
+# the host and its guests are different views (see the 2026-08-24/25 node
+# freeze in storage-and-backups.md, where node_load1 froze on the Talos
+# guest's own kernel while the NUC underneath it had already gone dark).
 # A static target rather than a PodMonitor/ServiceMonitor because there is
-# no Kubernetes object to select: it's bare metal on the LAN.
+# no Kubernetes object to select: it's bare metal on the LAN. `instance`
+# (the target address) is enough to tell the two hosts apart — no relabeling
+# needed for just two targets.
 #
 # Exists purely for forensics, not live alerting — Healthchecks.io already
 # owns "is the cluster up" (see networking.md). The point is that a repeat
 # of that freeze leaves a temperature/load graph on disk instead of a single
 # post-recovery snapshot reconstructed by hand from journalctl and smartctl.
-# It shares the same failure mode as everything else here (this node's own
-# NVMe stops if the host freezes), but Prometheus's PVC surviving the 08-25
-# crash with no data loss is exactly why that's still worth having.
+# It shares the same failure mode as everything else here (the NUC's own
+# NVMe stops if the host freezes, taking this Prometheus down with it), but
+# Prometheus's PVC surviving the 08-25 crash with no data loss is exactly
+# why that's still worth having. infra1 (10.0.0.2, dev VM + OPNsense) sits
+# behind a completely independent host, so it keeps reporting either way.
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
-  name: proxmox-host
+  name: proxmox-hosts
 spec:
   staticConfigs:
     - targets:
-        - 10.0.0.5:9100
+        - 10.0.0.5:9100 # NUC — runs this cluster
+        - 10.0.0.2:9100 # infra1 — dev VM + OPNsense
   metricsPath: /metrics
   scrapeInterval: 30s

@@ -333,12 +333,18 @@ spec:
           interval: 2m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
-        - name: proxmox (node_exporter)
+        - name: proxmox nuc (node_exporter)
           group: infrastructure
           # Catches the exporter itself going down independent of the host
           # freeze it exists to help diagnose — see the ScrapeConfig in
           # kube-prometheus-stack for why this runs on the bare host.
           url: "tcp://10.0.0.5:9100"
+          interval: 2m
+          conditions: ["[CONNECTED] == true"]
+          alerts: [{ type: ntfy }]
+        - name: proxmox infra1 (node_exporter)
+          group: infrastructure
+          url: "tcp://10.0.0.2:9100"
           interval: 2m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
