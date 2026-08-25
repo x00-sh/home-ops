@@ -39,9 +39,16 @@ spec:
               - sh
               - -c
               # 0077 so the file is not group- or world-readable; mosquitto
-              # refuses to start on a permissive password file.
+              # refuses to start on a permissive password file. `-c` in
+              # mosquitto_passwd opens with O_EXCL, so it errors out instead
+              # of overwriting if a file is already there — the `rm -f` makes
+              # this idempotent regardless. Needed because this emptyDir is
+              # backed by node disk, not tmpfs: a node crash that preserves
+              # the pod object (kubelet reattaches rather than recreating it)
+              # leaves the previous run's file in place.
               - >-
                 umask 0077 &&
+                rm -f /mosquitto/passwd/passwd &&
                 mosquitto_passwd -c -b /mosquitto/passwd/passwd
                 "$MQTT_USERNAME" "$MQTT_PASSWORD"
             envFrom:
