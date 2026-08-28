@@ -27,6 +27,20 @@ spec:
               PUID: "1000"
               PGID: "1000"
               UMASK: "002"
+              # CNPG consolidation pilot (2026-08-28) — host/port/user/dbname
+              # are plain values (host is the CNPG -rw Service name), same
+              # pattern as Authentik/Gatus/Seerr. Only the password comes
+              # from the generated bazarr-postgres-app secret.
+              POSTGRES_ENABLED: "true"
+              POSTGRES_HOST: bazarr-postgres-rw
+              POSTGRES_PORT: "5432"
+              POSTGRES_DATABASE: bazarr
+              POSTGRES_USERNAME: bazarr
+              POSTGRES_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: bazarr-postgres-app
+                    key: password
             resources:
               requests:
                 cpu: 25m
