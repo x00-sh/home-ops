@@ -1,0 +1,28 @@
+---
+# Part of the Seerr/Bazarr CNPG consolidation pilot (2026-08-28) — see
+# areas/media.md for the full rationale. Dedicated instance, not a shared
+# one: this is a single-node cluster (instances: 1 everywhere, no HA
+# possible regardless), so a shared Postgres would mean every restart takes
+# every consolidated app down together. Same minimal shape as
+# authentik-postgres/gatus-postgres/seerr-postgres — CloudNativePG creates a
+# secret named bazarr-postgres-app holding the generated credentials for the
+# `bazarr` user.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: bazarr-postgres
+spec:
+  instances: 1
+  storage:
+    size: 2Gi
+    storageClass: openebs-hostpath
+  bootstrap:
+    initdb:
+      database: bazarr
+      owner: bazarr
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
