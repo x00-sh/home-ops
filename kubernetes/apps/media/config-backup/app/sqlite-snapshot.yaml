@@ -1,15 +1,18 @@
 ---
-# Consistent SQLite snapshots for the two applications that have no backup
-# feature of their own.
+# Consistent SQLite snapshots for the one remaining application with no
+# backup feature of its own and no CNPG database.
 #
 # Sonarr, Radarr and Bazarr each write their own backup zip on a schedule, and
 # Volsync copies those — so a torn copy of their live database does not matter.
-# Jellyfin and Seerr have no such feature, which left their databases as the
-# only ones where Volsync's live read had nothing consistent beside it.
+# Jellyfin has no such feature, and no Postgres backend exists for it (no
+# upstream support — see areas/media.md), so this remains the only way its
+# database gets a consistent snapshot.
 #
-# Seerr shows why this matters: a 278 KB database with a 4 MB write-ahead log
-# that had not been checkpointed for two days. Copying that pair at two
-# slightly different moments is how you get a backup that will not open.
+# Seerr was migrated onto its own CNPG Postgres cluster (2026-08-28, see
+# areas/media.md's CNPG consolidation pilot) and removed from here — its
+# backup is now the pg_dump CronJob in postgres-backup-cronjobs.yaml. Its old
+# SQLite file is left in seerr-config as rollback for a soak period, but is
+# deliberately not being snapshotted any further.
 #
 # SQLite's online backup API takes a read lock per step and produces a single
 # fully-checkpointed file while the application keeps running — no quiescing,
@@ -34,9 +37,9 @@ spec:
         spec:
           restartPolicy: OnFailure
           securityContext:
-            # Jellyfin runs as root and its database is root-owned; Seerr's
-            # files belong to uid 1000. Root reads both, and the 0644 snapshots
-            # it writes stay readable by the Volsync mover, which runs as 1000.
+            # Jellyfin runs as root and its database is root-owned. Root
+            # reads it, and the 0644 snapshot it writes stays readable by
+            # the Volsync mover, which runs as 1000.
             runAsUser: 0
           containers:
             - name: snapshot
@@ -48,7 +51,7 @@ spec:
                 - |
                   import glob, os, sqlite3, sys
 
-                  patterns = ["/jellyfin/data/*.db", "/seerr/db/*.sqlite3"]
+                  patterns = ["/jellyfin/data/*.db"]
                   rc = 0
 
                   for pattern in patterns:
@@ -80,8 +83,6 @@ spec:
               volumeMounts:
                 - name: jellyfin
                   mountPath: /jellyfin
-                - name: seerr
-                  mountPath: /seerr
               resources:
                 requests:
                   cpu: 10m
@@ -91,6 +92,3 @@ spec:
             - name: jellyfin
               persistentVolumeClaim:
                 claimName: jellyfin-config
-            - name: seerr
-              persistentVolumeClaim:
-                claimName: seerr-config

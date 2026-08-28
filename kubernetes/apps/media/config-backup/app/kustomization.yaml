@@ -6,3 +6,5 @@ resources:
   - ./pvc.yaml
   - ./replicationsources.yaml
   - ./sqlite-snapshot.yaml
+  - ./postgres-backup-pvc.yaml
+  - ./postgres-backup-cronjobs.yaml
