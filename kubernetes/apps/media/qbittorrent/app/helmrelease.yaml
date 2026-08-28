@@ -1,10 +1,10 @@
 ---
-# Standalone for now, deliberately — no gluetun sidecar yet. Verifying the
-# app itself (PVC, route, Authentik) works in isolation before adding VPN
-# network isolation on top, so a mistake in one isn't confused for a mistake
-# in the other. The gluetun sidecar + CiliumNetworkPolicy land in a follow-up
-# change once this is confirmed green — see
-# /home/jlor/.claude/plans/replicated-hopping-dongarra.md.
+# Verified standalone (no VPN) 2026-08-28: pod healthy, route reachable,
+# Authentik-gated, Flux green cluster-wide. This step adds the gluetun
+# sidecar, which — together with networkpolicy.yaml — is the entire reason
+# this app exists: qBittorrent must never reach the internet except through
+# the ProtonVPN tunnel. See VPN_SERVICE_PROVIDER=custom note below for why
+# that's not the `protonvpn` provider value.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -37,6 +37,44 @@ spec:
                 memory: 256Mi
               limits:
                 memory: 1Gi
+          gluetun:
+            dependsOn: app
+            image:
+              repository: docker.io/qmcgaw/gluetun
+              tag: v3.41.1
+            env:
+              # `custom`, not `protonvpn`: the `protonvpn` provider value
+              # resolves a server hostname dynamically at connect time,
+              # which defeats the point of pinning one static endpoint IP
+              # for networkpolicy.yaml's allowlist. `custom` takes the
+              # endpoint literally from the env vars below instead.
+              VPN_SERVICE_PROVIDER: custom
+              VPN_TYPE: wireguard
+              # Gluetun's firewall applies netns-wide to every container in
+              # this pod, not just to itself — without this, its default
+              # kill-switch also blocks inbound to qBittorrent's own WebUI.
+              # Documented by gluetun itself as needed for Kubernetes
+              # sidecars specifically.
+              FIREWALL_INPUT_PORTS: "8080"
+              # So DNS to CoreDNS isn't caught by the same default-deny.
+              # This cluster runs Cilium with socketLB/kubeProxyReplacement,
+              # which may rewrite the DNS destination before gluetun's
+              # netns-local iptables see it — verified empirically after
+              # rollout (see plan file's verification steps), not assumed.
+              FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
+              TZ: Europe/Amsterdam
+            envFrom:
+              - secretRef:
+                  name: qbittorrent-protonvpn-secret
+            securityContext:
+              capabilities:
+                add: ["NET_ADMIN"]
+            resources:
+              requests:
+                cpu: 25m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
     service:
       app:
         controller: qbittorrent
@@ -88,3 +126,12 @@ spec:
         existingClaim: media
         globalMounts:
           - path: /data
+      # gluetun's own runtime state (its resolv.conf rewrite, internal
+      # firewall bookkeeping) — an emptyDir, not persisted, since it's
+      # rebuilt fresh on every start regardless.
+      gluetun-data:
+        type: emptyDir
+        advancedMounts:
+          qbittorrent:
+            gluetun:
+              - path: /gluetun

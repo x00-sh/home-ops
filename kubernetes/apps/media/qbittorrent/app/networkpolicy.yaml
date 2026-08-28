@@ -1,0 +1,43 @@
+---
+# The first CiliumNetworkPolicy in this cluster. Second, independent kill
+# switch alongside gluetun's own iptables firewall (which blocks all
+# non-tunnel egress in the pod's shared network namespace, and keeps doing
+# so even if gluetun's own process dies, since the rules live in the netns
+# not the process) — this one is enforced by Cilium at the eBPF layer,
+# outside the pod's own control entirely, so a bug in gluetun's firewall
+# doesn't undermine it.
+#
+# Hard allowlist: DNS to CoreDNS, WireGuard UDP to the one pinned ProtonVPN
+# server, nothing else. The endpoint IP/port are plaintext here deliberately
+# — they identify a public VPN server, not a credential; the actual secret
+# (the WireGuard private key) lives only in 1Password / the K8s Secret, see
+# externalsecret.yaml.
+#
+# Verified against the live cluster before writing this: pod label is
+# app.kubernetes.io/name=qbittorrent, CoreDNS is k8s-app=kube-dns in
+# kube-system, CiliumNetworkPolicy CRD is installed.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: qbittorrent-vpn-only
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: qbittorrent
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toCIDR:
+        - "185.159.158.237/32"
+      toPorts:
+        - ports:
+            - port: "51820"
+              protocol: UDP
