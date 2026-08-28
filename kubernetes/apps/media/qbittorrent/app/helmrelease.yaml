@@ -41,7 +41,7 @@ spec:
             dependsOn: app
             image:
               repository: docker.io/qmcgaw/gluetun
-              tag: v3.41.1
+              tag: v3.41.3
             env:
               # `custom`, not `protonvpn`: the `protonvpn` provider value
               # resolves a server hostname dynamically at connect time,
