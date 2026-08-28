@@ -24,3 +24,5 @@ resources:
   - ./prowlarr/ks.yaml
   - ./prowlarr/authentik/ks.yaml
   - ./configarr/ks.yaml
+  - ./qbittorrent/ks.yaml
+  - ./qbittorrent/authentik/ks.yaml

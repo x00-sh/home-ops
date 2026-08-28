@@ -94,6 +94,12 @@ spec:
           interval: 1m
           conditions: ["[STATUS] < 400"]
           alerts: [{ type: ntfy }]
+        - name: qbittorrent
+          group: media
+          url: https://qbittorrent.${SECRET_DOMAIN}
+          interval: 1m
+          conditions: ["[STATUS] < 400"]
+          alerts: [{ type: ntfy }]
         - name: prowlarr
           group: media
           # Owns the indexer list for both Sonarr and Radarr, so when this is

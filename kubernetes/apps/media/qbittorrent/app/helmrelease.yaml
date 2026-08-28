@@ -1,0 +1,90 @@
+---
+# Standalone for now, deliberately — no gluetun sidecar yet. Verifying the
+# app itself (PVC, route, Authentik) works in isolation before adding VPN
+# network isolation on top, so a mistake in one isn't confused for a mistake
+# in the other. The gluetun sidecar + CiliumNetworkPolicy land in a follow-up
+# change once this is confirmed green — see
+# /home/jlor/.claude/plans/replicated-hopping-dongarra.md.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: qbittorrent
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: qbittorrent
+  interval: 1h
+  values:
+    controllers:
+      qbittorrent:
+        replicas: 1
+        type: deployment
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/hotio/qbittorrent
+              tag: release-5.2.3
+            env:
+              TZ: Europe/Amsterdam
+              PUID: "1000"
+              PGID: "1000"
+              UMASK: "002"
+              WEBUI_PORT: "8080"
+            resources:
+              requests:
+                cpu: 25m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      app:
+        controller: qbittorrent
+        ports:
+          http:
+            port: 8080
+    route:
+      app:
+        # Internal gateway: same posture as sonarr/radarr/sabnzbd — LAN/
+        # WireGuard-only, Authentik forward auth layered on top.
+        hostnames:
+          - "qbittorrent.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
+      # A SECOND HTTPRoute on the same hostname, carrying no SecurityPolicy,
+      # so /api reaches the app without Authentik in the way — same reasoning
+      # as sonarr/radarr's split route (see their helmrelease.yaml comments):
+      # Envoy Gateway's extAuth replaces the request path when it calls the
+      # outpost, so Authentik's skip_path_regex can't work here regardless.
+      # qBittorrent enforces its own WebUI auth on every request, and this
+      # hostname is LAN/WireGuard-only on envoy-internal.
+      api:
+        hostnames:
+          - "qbittorrent.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api
+            backendRefs:
+              - identifier: app
+                port: 8080
+    persistence:
+      config:
+        existingClaim: qbittorrent-config
+        globalMounts:
+          - path: /config
+      media:
+        existingClaim: media
+        globalMounts:
+          - path: /data
