@@ -25,6 +25,20 @@ spec:
             env:
               TZ: Europe/Copenhagen
               PORT: "5055"
+              # CNPG consolidation pilot (2026-08-28) — host/port/user/dbname
+              # are plain values (host is the CNPG -rw Service name), same
+              # pattern as Authentik/Gatus. Only the password comes from the
+              # generated seerr-postgres-app secret.
+              DB_TYPE: postgres
+              DB_HOST: seerr-postgres-rw
+              DB_PORT: "5432"
+              DB_NAME: seerr
+              DB_USER: seerr
+              DB_PASS:
+                valueFrom:
+                  secretKeyRef:
+                    name: seerr-postgres-app
+                    key: password
             resources:
               requests:
                 cpu: 25m
