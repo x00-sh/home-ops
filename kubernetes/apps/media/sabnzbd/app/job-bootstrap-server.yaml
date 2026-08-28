@@ -11,6 +11,11 @@
 # owner-chosen and hardcoded here rather than in 1Password — see
 # externalsecret.yaml for the secret fields (host/port/username/password/
 # api_key) this reads. connections: 100, ssl: on — set 2026-08-28.
+#
+# Primary-only, deliberately: the live instance has a second usenet server
+# configured, and the owner chose (2026-08-28) not to make that one
+# reproducible here — after a genuine from-scratch restore, add it back by
+# hand through the UI, same as before this job existed.
 apiVersion: batch/v1
 kind: Job
 metadata:
