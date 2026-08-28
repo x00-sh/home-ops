@@ -38,6 +38,33 @@ spec:
         kind: HelmRepository
         name: crowdsecurity
   interval: 1h
+  # The chart's own root-CA Certificate template (templates/tls/ca-certificate.yaml)
+  # hardcodes no duration/renewBefore and exposes no values field for either —
+  # confirmed by reading the chart source at this pinned version. Left alone,
+  # crowdsec-ca inherits cert-manager's own default (~90 days, renews ~30 days
+  # before expiry), and OPNsense's ca_cert_path is a static exported copy of
+  # crowdsec-lapi-tls's ca.crt that goes stale silently the moment that
+  # rotation happens — see docs/open-items.md and the PrometheusRule below.
+  # A long-lived root is standard PKI practice regardless (only the leaf certs
+  # — agent/bouncer/lapi, already on their own 2160h/720h cycle — need to
+  # rotate often); this just makes that rotation rare instead of quarterly.
+  # No postRenderers precedent existed anywhere else in this repo before this;
+  # it's the correct Flux mechanism for patching Helm-rendered output the
+  # chart itself gives no values hook for, not a workaround.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Certificate
+              name: crowdsec-ca
+            patch: |
+              apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: crowdsec-ca
+              spec:
+                duration: 43800h
+                renewBefore: 720h
   values:
     # mTLS between agent and LAPI instead of the chart's default
     # username/token self-registration. The default flow has the agent's

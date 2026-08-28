@@ -38,3 +38,28 @@ spec:
               Envoy normally produces continuous traffic (Gatus alone
               checks it every minute), so this means the pipeline is stuck,
               not that traffic genuinely stopped.
+
+        # crowdsec-ca's duration is patched to 43800h (~5 years) via the
+        # HelmRelease's postRenderers — see helmrelease.yaml's comment for
+        # why the chart itself gives no other way to set this. This alert is
+        # the backstop regardless: a 60-day warning gives real lead time
+        # before cert-manager's own auto-renewal (30 days before expiry,
+        # renewBefore: 720h), because renewal is exactly the moment
+        # OPNsense's static exported copy of crowdsec-lapi-tls's ca.crt goes
+        # stale and its bouncer's TLS trust breaks silently until someone
+        # re-exports it by hand.
+        - alert: CrowdSecRootCAExpiringSoon
+          expr: >-
+            certmanager_certificate_expiration_timestamp_seconds{namespace="security", name="crowdsec-ca"} - time() < 86400 * 60
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: CrowdSec's root CA renews within 60 days
+            description: >-
+              cert-manager will auto-renew crowdsec-ca soon (it renews 30
+              days before expiry). When it does, OPNsense's exported copy of
+              crowdsec-lapi-tls's ca.crt goes stale and the firewall
+              bouncer's TLS trust to LAPI breaks silently — re-export the CA
+              cert to OPNsense once the rotation actually happens, not just
+              on this warning.
