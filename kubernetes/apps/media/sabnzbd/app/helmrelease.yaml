@@ -66,6 +66,36 @@ spec:
                 memory: 256Mi
               limits:
                 memory: 2Gi
+          # Verified against qBittorrent first (2026-08-28) before touching
+          # this live instance: tunnel-up check, the actual kill-switch test
+          # (tunnel deliberately broken, app egress confirmed to fail
+          # completely, not fall back), iptables default-DROP allowlist, and
+          # independent CiliumNetworkPolicy enforcement via cilium-dbg. Same
+          # shape here verbatim. See networkpolicy.yaml and
+          # externalsecret.yaml's sabnzbd-protonvpn entry.
+          gluetun:
+            dependsOn: app
+            image:
+              repository: docker.io/qmcgaw/gluetun
+              tag: v3.41.1
+            env:
+              VPN_SERVICE_PROVIDER: custom
+              VPN_TYPE: wireguard
+              FIREWALL_INPUT_PORTS: "8080"
+              FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
+              TZ: Europe/Amsterdam
+            envFrom:
+              - secretRef:
+                  name: sabnzbd-protonvpn-secret
+            securityContext:
+              capabilities:
+                add: ["NET_ADMIN"]
+            resources:
+              requests:
+                cpu: 25m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
     service:
       app:
         controller: sabnzbd
@@ -95,3 +125,9 @@ spec:
         existingClaim: media
         globalMounts:
           - path: /data
+      gluetun-data:
+        type: emptyDir
+        advancedMounts:
+          sabnzbd:
+            gluetun:
+              - path: /gluetun

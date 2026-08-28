@@ -1,0 +1,30 @@
+---
+# Same shape as kubernetes/apps/media/qbittorrent/app/networkpolicy.yaml,
+# verified there first against the live cluster before being applied here.
+# Hard allowlist: DNS to CoreDNS, WireGuard UDP to the one pinned ProtonVPN
+# server, nothing else.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: sabnzbd-vpn-only
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: sabnzbd
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toCIDR:
+        - "185.159.158.237/32"
+      toPorts:
+        - ports:
+            - port: "51820"
+              protocol: UDP
