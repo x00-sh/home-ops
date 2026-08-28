@@ -33,7 +33,7 @@ spec:
           app:
             image:
               repository: docker.io/xenrox/ntfy-alertmanager
-              tag: 1.0.0
+              tag: 1.0.1
             args: ["--config", "/config/config"]
             resources:
               requests:
