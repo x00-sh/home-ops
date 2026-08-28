@@ -17,6 +17,39 @@ spec:
         replicas: 1
         type: deployment
         strategy: Recreate
+        initContainers:
+          # SABnzbd has no env var for its API key, and it rewrites the whole
+          # ini on every shutdown, so a live edit doesn't stick (same trap as
+          # the host_whitelist fix documented in k8s-migration/docs/areas/
+          # media.md). This only ever touches a volume with no sabnzbd.ini
+          # yet — i.e. a fresh PVC after a from-scratch restore — so the
+          # running instance's config is never at risk of being overwritten.
+          # Once SABnzbd itself has booted and owns the file, this is a
+          # silent no-op forever after.
+          init-config:
+            image:
+              repository: docker.io/library/busybox
+              tag: 1.36.1
+            command:
+              - sh
+              - -c
+              - >-
+                set -eu;
+                if [ ! -f /config/sabnzbd.ini ]; then
+                  echo "sabnzbd.ini missing, seeding api_key and host_whitelist for first boot";
+                  umask 0077;
+                  printf '[misc]\napi_key = %s\nhost_whitelist = sabnzbd.%s\n'
+                    "$API_KEY" "$SECRET_DOMAIN" > /config/sabnzbd.ini;
+                else
+                  echo "sabnzbd.ini already present, leaving it untouched";
+                fi
+            env:
+              API_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: sabnzbd-secret
+                    key: API_KEY
+              SECRET_DOMAIN: "${SECRET_DOMAIN}"
         containers:
           app:
             image:

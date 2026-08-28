@@ -1,0 +1,91 @@
+---
+# One-shot: seeds SABnzbd's usenet server if (and only if) the API reports
+# none configured yet. Job objects are immutable once applied, so this fires
+# exactly once per fresh sabnzbd-config PVC — a genuine from-scratch restore
+# — and Flux never re-triggers it against the already-running instance. To
+# re-run deliberately (e.g. testing DR), delete the Job and let Flux
+# recreate it:
+#   kubectl -n media delete job sabnzbd-server-bootstrap
+#
+# Non-secret dialing parameters (connections, ssl, priority, enable) are
+# owner-chosen and hardcoded here rather than in 1Password — see
+# externalsecret.yaml for the secret fields (host/port/username/password/
+# api_key) this reads. connections: 100, ssl: on — set 2026-08-28.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sabnzbd-server-bootstrap
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: bootstrap
+          image: docker.io/curlimages/curl:8.11.1
+          envFrom:
+            - secretRef:
+                name: sabnzbd-secret
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              BASE="http://sabnzbd:8080/api"
+
+              echo "Waiting for SABnzbd to answer..."
+              i=0
+              until curl -sf "$BASE?mode=version&apikey=$API_KEY" >/dev/null; do
+                i=$((i + 1))
+                if [ "$i" -ge 30 ]; then
+                  echo "SABnzbd never became reachable, giving up" >&2
+                  exit 1
+                fi
+                sleep 10
+              done
+
+              # Deliberately checks for ANY configured server (the literal
+              # "host" key appearing anywhere in the dump), not a match on
+              # this specific hostname — the exact response shape isn't
+              # nailed down by SABnzbd's docs, and a false-negative here
+              # would add a duplicate server next to the one already live.
+              # A false-positive skip is harmless; a false-negative add is
+              # not, so this errs conservative.
+              EXISTING=$(curl -sf "$BASE?mode=get_config&section=servers&output=json&apikey=$API_KEY")
+              if printf '%s' "$EXISTING" | grep -q '"host"'; then
+                echo "A server is already configured, nothing to do"
+                exit 0
+              fi
+
+              echo "No server configured yet, adding $NNTP_HOST"
+              curl -sf "$BASE" \
+                --data-urlencode "mode=set_config" \
+                --data-urlencode "section=servers" \
+                --data-urlencode "name=$NNTP_HOST" \
+                --data-urlencode "host=$NNTP_HOST" \
+                --data-urlencode "port=$NNTP_PORT" \
+                --data-urlencode "username=$NNTP_USERNAME" \
+                --data-urlencode "password=$NNTP_PASSWORD" \
+                --data-urlencode "connections=100" \
+                --data-urlencode "ssl=1" \
+                --data-urlencode "priority=0" \
+                --data-urlencode "enable=1" \
+                --data-urlencode "apikey=$API_KEY" \
+                --data-urlencode "output=json" \
+                -o /dev/null
+              echo "Server added"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi

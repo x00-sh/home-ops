@@ -27,6 +27,12 @@ spec:
               PUID: "1000"
               PGID: "1000"
               UMASK: "002"
+            # RADARR__AUTH__APIKEY overrides config.xml's <ApiKey> on every
+            # boot — see externalsecret.yaml for why the 1Password value must
+            # match what's already live.
+            envFrom:
+              - secretRef:
+                  name: radarr-secret
             resources:
               requests:
                 cpu: 25m
