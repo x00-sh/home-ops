@@ -107,6 +107,10 @@ spec:
         type: LoadBalancer
         annotations:
           lbipam.cilium.io/ips: "10.0.0.54"
+          # k8s-gateway only publishes a DNS record for Services carrying
+          # this annotation — without it, mqtt.${SECRET_DOMAIN} never
+          # resolves even though the LoadBalancer IP itself works fine.
+          external-dns.alpha.kubernetes.io/hostname: "mqtt.${SECRET_DOMAIN}"
         ports:
           mqtt:
             port: 1883
