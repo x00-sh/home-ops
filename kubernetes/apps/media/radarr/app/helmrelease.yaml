@@ -27,6 +27,18 @@ spec:
               PUID: "1000"
               PGID: "1000"
               UMASK: "002"
+              # CNPG Postgres migration (2026-08-29) — see areas/media.md.
+              # Same two-database shape as Prowlarr.
+              RADARR__POSTGRES__HOST: radarr-postgres-rw
+              RADARR__POSTGRES__PORT: "5432"
+              RADARR__POSTGRES__USER: radarr
+              RADARR__POSTGRES__MAINDB: radarr-main
+              RADARR__POSTGRES__LOGDB: radarr-log
+              RADARR__POSTGRES__PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: radarr-postgres-app
+                    key: password
             # RADARR__AUTH__APIKEY overrides config.xml's <ApiKey> on every
             # boot — see externalsecret.yaml for why the 1Password value must
             # match what's already live.
