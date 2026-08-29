@@ -16,8 +16,9 @@ about this one, start there instead.
 
 Single control-plane node (no HA — deliberate, not an oversight: a reboot or
 upgrade is a full outage, accepted in exchange for skipping a
-replicated-storage tier and a SQLite→Postgres migration every stateful app
-would otherwise have needed). Everything below runs on that one node.
+replicated-storage tier and the multi-instance Postgres HA a real cluster
+would need — every CloudNativePG `Cluster` here runs `instances: 1`
+regardless of how many apps use it). Everything below runs on that one node.
 
 ```mermaid
 graph TB
@@ -91,6 +92,7 @@ graph TB
     end
 
     apps --> storage
+    apps --> db
     netmgmt --> storage
     sec --> db
 ```
@@ -117,24 +119,28 @@ an app gets is a one-line `parentRefs` choice plus, where needed, one
 
 ### What's running, by namespace
 
-| Namespace            | Apps                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `network`            | Cilium (CNI), Envoy Gateway, k8s-gateway (DNS), cloudflare-tunnel, external-dns                                     |
-| `security`           | Authentik, Falco (syscall IDS), CrowdSec (HTTP scan/probe detection), External Secrets Operator, 1Password Connect  |
-| `database`           | CloudNativePG — one Postgres instance, used only by Authentik                                                       |
-| `storage`            | OpenEBS LocalPV (node NVMe, default StorageClass), csi-driver-nfs, Volsync (restic backups), snapshot-controller    |
-| `media`              | Sonarr, Radarr, Prowlarr, Bazarr, SABnzbd, Jellyfin, Seerr, Configarr                                               |
-| `home-automation`    | Home Assistant, Zigbee2MQTT, Mosquitto, wyoming-whisper/wyoming-piper (Assist voice pipeline)                       |
-| `network-management` | Omada SDN controller                                                                                                |
-| `observability`      | kube-prometheus-stack (Prometheus/Grafana/Alertmanager), Loki + Alloy, Gatus, Headlamp, an Alertmanager→ntfy bridge |
-| `flux-system`        | flux-operator, flux-instance and the four GitOps Toolkit controllers                                                |
+| Namespace            | Apps                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `network`            | Cilium (CNI), Envoy Gateway, k8s-gateway (DNS), cloudflare-tunnel, external-dns                                                                                                            |
+| `security`           | Authentik, Falco (syscall IDS), CrowdSec (HTTP scan/probe detection), External Secrets Operator, 1Password Connect                                                                         |
+| `database`           | CloudNativePG operator — each app that uses Postgres gets its own dedicated `Cluster` in its own namespace (7 as of 2026-08-29: Authentik, Gatus, Seerr, Bazarr, Prowlarr, Radarr, Sonarr) |
+| `storage`            | OpenEBS LocalPV (node NVMe, default StorageClass), csi-driver-nfs, Volsync (restic backups), snapshot-controller                                                                           |
+| `media`              | Sonarr, Radarr, Prowlarr, Bazarr, SABnzbd, qBittorrent, Jellyfin, Seerr, Configarr                                                                                                         |
+| `home-automation`    | Home Assistant, Zigbee2MQTT, Mosquitto, wyoming-whisper/wyoming-piper (Assist voice pipeline)                                                                                              |
+| `network-management` | Omada SDN controller                                                                                                                                                                       |
+| `observability`      | kube-prometheus-stack (Prometheus/Grafana/Alertmanager), Loki + Alloy, Gatus, Headlamp, an Alertmanager→ntfy bridge                                                                        |
+| `flux-system`        | flux-operator, flux-instance and the four GitOps Toolkit controllers                                                                                                                       |
 
-Every other app keeps SQLite on local NVMe rather than migrating to
-Postgres — it performs well on NVMe and avoids a migration that buys
-nothing here. Secrets: SOPS + age for everything needed at bootstrap (the
-reason this repo is safe to make public at all), External Secrets Operator
-
-- 1Password layered on afterward for application-level secrets.
+Jellyfin, SABnzbd and qBittorrent are the only apps left on SQLite (local
+NVMe) — none of the three has any Postgres support to migrate to. Every
+other stateful app (Authentik, Gatus, Seerr, Bazarr, Prowlarr, Radarr,
+Sonarr) runs on its own dedicated CloudNativePG cluster instead, migrated
+for performance and a single consolidated `pg_dump` backup destination
+rather than for HA — this is still a single-node cluster, so every CNPG
+`Cluster` here is `instances: 1` regardless. Secrets: SOPS + age for
+everything needed at bootstrap (the reason this repo is safe to make public
+at all), External Secrets Operator — 1Password layered on afterward for
+application-level secrets.
 
 ## Automation
 
