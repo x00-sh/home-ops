@@ -37,7 +37,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: dump
-              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
               env:
                 - name: PGURI
                   valueFrom:
@@ -88,7 +88,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: dump
-              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
               env:
                 - name: PGURI
                   valueFrom:
@@ -139,7 +139,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: dump
-              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
               env:
                 - name: PGURI
                   valueFrom:
@@ -190,7 +190,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: dump
-              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
               env:
                 - name: PGURI
                   valueFrom:
@@ -241,7 +241,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: dump
-              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              image: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
               env:
                 - name: PGURI
                   valueFrom:
