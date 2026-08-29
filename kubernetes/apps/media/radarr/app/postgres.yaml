@@ -1,0 +1,38 @@
+---
+# Third app in the CNPG consolidation initiative, after Seerr/Bazarr
+# (2026-08-28) and Prowlarr (2026-08-29) — see areas/media.md. Same
+# two-database (main+log) shape as Prowlarr, using CNPG's declarative
+# Database CRD for the second one. Radarr goes before Sonarr: its SQLite
+# file is 10x smaller, so it validates the truncate-before-load migration
+# procedure (needed here because Radarr/Sonarr seed config tables like
+# NamingConfig with real data, unlike Prowlarr's harmless bookkeeping
+# seed rows) at lower stakes first.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: radarr-postgres
+spec:
+  instances: 1
+  storage:
+    size: 2Gi
+    storageClass: openebs-hostpath
+  bootstrap:
+    initdb:
+      database: radarr-main
+      owner: radarr
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-log
+spec:
+  name: radarr-log
+  owner: radarr
+  cluster:
+    name: radarr-postgres
