@@ -11,3 +11,4 @@ resources:
   - ./podmonitor.yaml
   - ./scrapeconfig.yaml
   - ./securitypolicy.yaml
+  - ./dashboard-backup-status.yaml

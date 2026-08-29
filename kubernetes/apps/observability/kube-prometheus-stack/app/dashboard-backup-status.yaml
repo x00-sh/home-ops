@@ -1,0 +1,675 @@
+---
+# Backup status dashboard - owner request (2026-08-29): at-a-glance status,
+# history, and the tiered backup strategy/retention in one place. Reuses
+# metrics already flowing into this cluster's Prometheus rather than a new
+# service: kube-state-metrics for the 6 pg_dump + 2 sqlite-snapshot
+# CronJobs, and Volsync's own volsync_* metrics for the 11 restic
+# ReplicationSources. First custom Grafana dashboard in this repo - every
+# other one provisioned so far is a stock kube-prometheus-stack chart
+# dashboard.
+#
+# ${DS_PROMETHEUS} below is Grafana's OWN dashboard-variable syntax, not a
+# Flux postBuild substitution variable - but this Kustomization has
+# postBuild.substituteFrom configured (see ks.yaml), so ${VAR} is expanded
+# before this ever reaches Grafana. Escaped as $${DS_PROMETHEUS} throughout
+# so substitution collapses it to a literal ${DS_PROMETHEUS} for Grafana to
+# read - same trick already used in
+# kubernetes/apps/media/config-backup/app/postgres-backup-cronjobs.yaml for
+# shell variables.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-backup-status
+  labels:
+    grafana_dashboard: "1"
+data:
+  backup-status.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "type": "text",
+          "title": "Backup Strategy & Retention",
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "mode": "markdown",
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "### Three storage tiers\n| Tier | Backing | Used for |\n|---|---|---|\n| Local NVMe (`openebs-hostpath`) | NUC m.2 | All app config/state, all databases, Jellyfin cache |\n| NFS (`nfs-backup` class) | `nas:/volume2/backup` | Volsync/restic targets, `pg_dump` output |\n| NFS static PV | `nas:/volume1/media` | Media library \u2014 lives on the NAS itself, not separately backed up |\n\n### Volsync (restic) \u2014 11 config PVCs, nightly 00:50-02:10 UTC (staggered)\nRetention: **7 daily / 4 weekly / 6 monthly**, pruned every 14 days.\nCovers: bazarr, jellyfin, prowlarr, qbittorrent, radarr, sabnzbd, seerr, sonarr, home-assistant, zigbee2mqtt, omada configs.\nExcluded: `jellyfin-cache` (regenerable, not worth 20Gi nightly) and all observability PVCs (Prometheus/Loki/Alertmanager/Gatus \u2014 disposable; dashboards live in git).\n\n### Postgres `pg_dump` \u2014 6 CNPG databases, nightly 03:00-03:50 UTC (staggered)\nRetention: **30 days** by file age. Every dump is verified with `pg_restore --list` before being published (write-tmp-then-rename).\nCovers: authentik, seerr, bazarr, prowlarr, radarr, sonarr.\n\n### SQLite snapshot \u2014 Jellyfin (23:00 UTC) & Home Assistant (00:00 UTC)\nA single rolling `.bak` file via SQLite's own online backup API \u2014 no history of its own. Historical versions come from Volsync's restic backup of the config PVC it lives on (same 7/4/6 retention as above).\n\nFull detail: `docs/areas/storage-and-backups.md` and `docs/areas/media.md`."
+          },
+          "transparent": false
+        },
+        {
+          "type": "table",
+          "title": "Scheduled Backup Jobs \u2014 Hours Since Last Success",
+          "description": "kube_cronjob_status_last_successful_time for every pg_dump and sqlite-snapshot CronJob",
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 9
+          },
+          "id": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "(time() - kube_cronjob_status_last_successful_time{cronjob=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup|sqlite-snapshot\"}) / 3600",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "h",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 30
+                  },
+                  {
+                    "color": "red",
+                    "value": 48
+                  }
+                ]
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "color-background"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "container": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "pod": true,
+                  "service": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "Value": "Hours since success",
+                  "cronjob": "Job",
+                  "namespace": "Namespace"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "title": "Scheduled Backup Jobs \u2014 Hours Until Next Run",
+          "description": "kube_cronjob_next_schedule_time for every pg_dump and sqlite-snapshot CronJob",
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 9
+          },
+          "id": 3,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "(kube_cronjob_next_schedule_time{cronjob=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup|sqlite-snapshot\"} - time()) / 3600",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "h",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 0
+                  }
+                ]
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "color-background"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "container": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "pod": true,
+                  "service": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "Value": "Hours until next run",
+                  "cronjob": "Job",
+                  "namespace": "Namespace"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Backup Jobs Currently Running",
+          "description": "Any pg_dump, sqlite-snapshot or Volsync mover Job that is active right now",
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 9
+          },
+          "id": 4,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "sum(kube_job_status_active{job_name=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup-.*|sqlite-snapshot-.*|volsync-src-.*\"}) OR on() vector(0)",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "blue",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value_and_name",
+            "justifyMode": "auto"
+          }
+        },
+        {
+          "type": "table",
+          "title": "Volsync PVCs \u2014 Hours Since Last Sync",
+          "description": "Derived from volsync_sync_duration_seconds_count (the completion counter)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 17
+          },
+          "id": 5,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "(time() - timestamp(volsync_sync_duration_seconds_count)) / 3600",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "h",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 30
+                  },
+                  {
+                    "color": "red",
+                    "value": 48
+                  }
+                ]
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "color-background"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "container": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "pod": true,
+                  "service": true,
+                  "namespace": true,
+                  "method": true,
+                  "role": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "Value": "Hours since sync",
+                  "obj_name": "PVC",
+                  "obj_namespace": "Namespace"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "title": "Volsync PVCs \u2014 Out of Sync (0=healthy, 1=stale)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 17
+          },
+          "id": 6,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "volsync_volume_out_of_sync",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "color-background"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "container": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "pod": true,
+                  "service": true,
+                  "namespace": true,
+                  "method": true,
+                  "role": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "Value": "Out of sync",
+                  "obj_name": "PVC",
+                  "obj_namespace": "Namespace"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Scheduled Backup Job History",
+          "description": "Each point is a real Job completion event (succeeded or failed), not a continuous state",
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 25
+          },
+          "id": 7,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "kube_job_status_succeeded{job_name=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup-.*|sqlite-snapshot-.*\"}",
+              "legendFormat": "{{job_name}} ok",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "kube_job_status_failed{job_name=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup-.*|sqlite-snapshot-.*\"} * 2",
+              "legendFormat": "{{job_name}} FAILED",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "max": 2.2,
+              "custom": {
+                "drawStyle": "points",
+                "pointSize": 8,
+                "spanNulls": false,
+                "fillOpacity": 0
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Volsync Out-of-Sync History",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 34
+          },
+          "id": 8,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "volsync_volume_out_of_sync",
+              "legendFormat": "{{obj_namespace}}/{{obj_name}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "max": 1,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "stepAfter",
+                "fillOpacity": 10,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Volsync Daily Sync Completions",
+          "description": "increase() of the completion counter per day \u2014 a missing/zero bar means that day's sync didn't complete",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 34
+          },
+          "id": 9,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$${DS_PROMETHEUS}"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$${DS_PROMETHEUS}"
+              },
+              "expr": "sum by (obj_namespace, obj_name) (increase(volsync_sync_duration_seconds_count[1d]))",
+              "legendFormat": "{{obj_namespace}}/{{obj_name}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "custom": {
+                "drawStyle": "bars",
+                "fillOpacity": 60,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        }
+      ],
+      "refresh": "5m",
+      "schemaVersion": 39,
+      "tags": [
+        "backups"
+      ],
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "hide": 0,
+            "label": "Data source",
+            "name": "DS_PROMETHEUS",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-7d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "utc",
+      "title": "Backup Status & Strategy",
+      "uid": "backup-status",
+      "version": 1,
+      "weekStart": ""
+    }
