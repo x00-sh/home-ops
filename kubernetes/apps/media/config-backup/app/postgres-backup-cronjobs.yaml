@@ -1,18 +1,19 @@
 ---
-# Nightly logical dumps of the Seerr/Bazarr/Prowlarr CNPG databases, onto the
-# shared media-postgres-backup PVC — same pattern as Authentik's backup.yaml
-# (kubernetes/apps/security/authentik/app/backup.yaml), one CronJob per app,
-# each writing into its own subdirectory of the shared PVC.
+# Nightly logical dumps of the Seerr/Bazarr/Prowlarr/Radarr CNPG databases,
+# onto the shared media-postgres-backup PVC — same pattern as Authentik's
+# backup.yaml (kubernetes/apps/security/authentik/app/backup.yaml), one
+# CronJob per app, each writing into its own subdirectory of the shared PVC.
 #
 # Image pinned to the actual live Postgres version (checked 2026-08-28/29:
-# ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie on all three
-# clusters), not copied from Authentik's own backup.yaml comment — that one
-# already claims 18.6 while the cluster it backs up is actually running
-# 18.4, a drift worth not repeating here.
+# ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie on all clusters), not
+# copied from Authentik's own backup.yaml comment — that one already claims
+# 18.6 while the cluster it backs up is actually running 18.4, a drift
+# worth not repeating here.
 #
-# Prowlarr's prowlarr-log database is deliberately NOT backed up — it's
-# transient Serilog runtime history with no reconstruction value, same
-# reasoning as not migrating it in the first place (see areas/media.md).
+# Prowlarr's prowlarr-log and Radarr's radarr-log databases are deliberately
+# NOT backed up — transient Serilog runtime history with no reconstruction
+# value, same reasoning as not migrating them in the first place (see
+# areas/media.md).
 #
 # NOTE ON $$ BELOW: this Kustomization runs Flux postBuild substitution,
 # which expands ${VAR} and $VAR. Shell variables must therefore be written
@@ -157,6 +158,57 @@ spec:
                   find /backup/prowlarr -name 'prowlarr-*.dump.tmp' -type f -mtime +1 -delete
                   echo "backup complete:"
                   ls -la /backup/prowlarr
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 10m
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: media-postgres-backup
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: radarr-postgres-backup
+spec:
+  schedule: "40 3 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dump
+              image: ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie
+              env:
+                - name: PGURI
+                  valueFrom:
+                    secretKeyRef:
+                      name: radarr-postgres-app
+                      key: uri
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  mkdir -p /backup/radarr
+                  out="/backup/radarr/radarr-$$(date -u +%Y%m%dT%H%M%SZ).dump"
+                  pg_dump --format=custom --compress=9 --file="$$out.tmp" "$$PGURI"
+                  pg_restore --list "$$out.tmp" > /dev/null
+                  mv "$$out.tmp" "$$out"
+                  find /backup/radarr -name 'radarr-*.dump' -type f -mtime +30 -delete
+                  find /backup/radarr -name 'radarr-*.dump.tmp' -type f -mtime +1 -delete
+                  echo "backup complete:"
+                  ls -la /backup/radarr
               volumeMounts:
                 - name: backup
                   mountPath: /backup
