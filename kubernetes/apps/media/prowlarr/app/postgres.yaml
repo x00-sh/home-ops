@@ -1,0 +1,36 @@
+---
+# Second CNPG pilot after Seerr/Bazarr (2026-08-28) — see areas/media.md.
+# Prowlarr needs TWO databases (main + log, same split Sonarr/Radarr use),
+# so unlike the Seerr/Bazarr Clusters this also declares a second database
+# via CNPG's declarative Database CRD (bootstrap.initdb only creates one).
+# logs.db is deliberately not migrated or backed up — transient runtime
+# logs, no reconstruction cost — so it just starts empty here.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: prowlarr-postgres
+spec:
+  instances: 1
+  storage:
+    size: 2Gi
+    storageClass: openebs-hostpath
+  bootstrap:
+    initdb:
+      database: prowlarr-main
+      owner: prowlarr
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-log
+spec:
+  name: prowlarr-log
+  owner: prowlarr
+  cluster:
+    name: prowlarr-postgres
