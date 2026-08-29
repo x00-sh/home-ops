@@ -27,6 +27,18 @@ spec:
               PUID: "1000"
               PGID: "1000"
               UMASK: "002"
+              # CNPG Postgres migration (2026-08-29) — see areas/media.md.
+              # Same two-database shape as Prowlarr/Radarr.
+              SONARR__POSTGRES__HOST: sonarr-postgres-rw
+              SONARR__POSTGRES__PORT: "5432"
+              SONARR__POSTGRES__USER: sonarr
+              SONARR__POSTGRES__MAINDB: sonarr-main
+              SONARR__POSTGRES__LOGDB: sonarr-log
+              SONARR__POSTGRES__PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: sonarr-postgres-app
+                    key: password
             # SONARR__AUTH__APIKEY overrides config.xml's <ApiKey> on every
             # boot — see externalsecret.yaml for why the 1Password value must
             # match what's already live.
