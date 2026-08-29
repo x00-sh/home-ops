@@ -8,6 +8,19 @@
 # other one provisioned so far is a stock kube-prometheus-stack chart
 # dashboard.
 #
+# Colorblind-safe palette (2026-08-29, owner request): status colors use
+# the Okabe & Ito (2008) palette - https://jfly.uni-koeln.de/color/ - not
+# Grafana's default red/green/yellow. Bluish-green (#009E73) for good,
+# orange (#E69F00) for warning, vermillion (#D55E00) for bad, sky blue
+# (#56B4E9) for informational/in-progress. This specific green/vermillion
+# pairing is one of Okabe-Ito's validated safe pairs: distinguishable under
+# protanopia and deuteranopia (the red-green forms) AND tritanopia (the
+# blue-yellow form), unlike a plain red/green or blue/yellow scheme. The
+# Volsync "out of sync" panel also carries a text value mapping (OK/STALE)
+# so status never depends on color alone (WCAG 1.4.1, "Use of Color") - see
+# areas/observability.md for the full rationale, shared here since this
+# repo is public.
+#
 # ${DS_PROMETHEUS} below is Grafana's OWN dashboard-variable syntax, not a
 # Flux postBuild substitution variable - but this Kustomization has
 # postBuild.substituteFrom configured (see ks.yaml), so ${VAR} is expanded
@@ -52,13 +65,13 @@ data:
               "showLineNumbers": false,
               "showMiniMap": false
             },
-            "content": "### Three storage tiers\n| Tier | Backing | Used for |\n|---|---|---|\n| Local NVMe (`openebs-hostpath`) | NUC m.2 | All app config/state, all databases, Jellyfin cache |\n| NFS (`nfs-backup` class) | `nas:/volume2/backup` | Volsync/restic targets, `pg_dump` output |\n| NFS static PV | `nas:/volume1/media` | Media library \u2014 lives on the NAS itself, not separately backed up |\n\n### Volsync (restic) \u2014 11 config PVCs, nightly 00:50-02:10 UTC (staggered)\nRetention: **7 daily / 4 weekly / 6 monthly**, pruned every 14 days.\nCovers: bazarr, jellyfin, prowlarr, qbittorrent, radarr, sabnzbd, seerr, sonarr, home-assistant, zigbee2mqtt, omada configs.\nExcluded: `jellyfin-cache` (regenerable, not worth 20Gi nightly) and all observability PVCs (Prometheus/Loki/Alertmanager/Gatus \u2014 disposable; dashboards live in git).\n\n### Postgres `pg_dump` \u2014 6 CNPG databases, nightly 03:00-03:50 UTC (staggered)\nRetention: **30 days** by file age. Every dump is verified with `pg_restore --list` before being published (write-tmp-then-rename).\nCovers: authentik, seerr, bazarr, prowlarr, radarr, sonarr.\n\n### SQLite snapshot \u2014 Jellyfin (23:00 UTC) & Home Assistant (00:00 UTC)\nA single rolling `.bak` file via SQLite's own online backup API \u2014 no history of its own. Historical versions come from Volsync's restic backup of the config PVC it lives on (same 7/4/6 retention as above).\n\nFull detail: `docs/areas/storage-and-backups.md` and `docs/areas/media.md`."
+            "content": "### Three storage tiers\n| Tier | Backing | Used for |\n|---|---|---|\n| Local NVMe (`openebs-hostpath`) | NUC m.2 | All app config/state, all databases, Jellyfin cache |\n| NFS (`nfs-backup` class) | `nas:/volume2/backup` | Volsync/restic targets, `pg_dump` output |\n| NFS static PV | `nas:/volume1/media` | Media library — lives on the NAS itself, not separately backed up |\n\n### Volsync (restic) — 11 config PVCs, nightly 00:50-02:10 UTC (staggered)\nRetention: **7 daily / 4 weekly / 6 monthly**, pruned every 14 days.\nCovers: bazarr, jellyfin, prowlarr, qbittorrent, radarr, sabnzbd, seerr, sonarr, home-assistant, zigbee2mqtt, omada configs.\nExcluded: `jellyfin-cache` (regenerable, not worth 20Gi nightly) and all observability PVCs (Prometheus/Loki/Alertmanager/Gatus — disposable; dashboards live in git).\n\n### Postgres `pg_dump` — 6 CNPG databases, nightly 03:00-03:50 UTC (staggered)\nRetention: **30 days** by file age. Every dump is verified with `pg_restore --list` before being published (write-tmp-then-rename).\nCovers: authentik, seerr, bazarr, prowlarr, radarr, sonarr.\n\n### SQLite snapshot — Jellyfin (23:00 UTC) & Home Assistant (00:00 UTC)\nA single rolling `.bak` file via SQLite's own online backup API — no history of its own. Historical versions come from Volsync's restic backup of the config PVC it lives on (same 7/4/6 retention as above).\n\nFull detail: `docs/areas/storage-and-backups.md` and `docs/areas/media.md`."
           },
           "transparent": false
         },
         {
           "type": "table",
-          "title": "Scheduled Backup Jobs \u2014 Hours Since Last Success",
+          "title": "Scheduled Backup Jobs — Hours Since Last Success",
           "description": "kube_cronjob_status_last_successful_time for every pg_dump and sqlite-snapshot CronJob",
           "gridPos": {
             "h": 8,
@@ -91,15 +104,15 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#009E73",
                     "value": null
                   },
                   {
-                    "color": "yellow",
+                    "color": "#E69F00",
                     "value": 30
                   },
                   {
-                    "color": "red",
+                    "color": "#D55E00",
                     "value": 48
                   }
                 ]
@@ -143,7 +156,7 @@ data:
         },
         {
           "type": "table",
-          "title": "Scheduled Backup Jobs \u2014 Hours Until Next Run",
+          "title": "Scheduled Backup Jobs — Hours Until Next Run",
           "description": "kube_cronjob_next_schedule_time for every pg_dump and sqlite-snapshot CronJob",
           "gridPos": {
             "h": 8,
@@ -176,11 +189,11 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "#D55E00",
                     "value": null
                   },
                   {
-                    "color": "green",
+                    "color": "#009E73",
                     "value": 0
                   }
                 ]
@@ -256,11 +269,11 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#8E8E8E",
                     "value": null
                   },
                   {
-                    "color": "blue",
+                    "color": "#56B4E9",
                     "value": 1
                   }
                 ]
@@ -285,7 +298,7 @@ data:
         },
         {
           "type": "table",
-          "title": "Volsync PVCs \u2014 Hours Since Last Sync",
+          "title": "Volsync PVCs — Hours Since Last Sync",
           "description": "Derived from volsync_sync_duration_seconds_count (the completion counter)",
           "gridPos": {
             "h": 8,
@@ -318,15 +331,15 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#009E73",
                     "value": null
                   },
                   {
-                    "color": "yellow",
+                    "color": "#E69F00",
                     "value": 30
                   },
                   {
-                    "color": "red",
+                    "color": "#D55E00",
                     "value": 48
                   }
                 ]
@@ -373,7 +386,7 @@ data:
         },
         {
           "type": "table",
-          "title": "Volsync PVCs \u2014 Out of Sync (0=healthy, 1=stale)",
+          "title": "Volsync PVCs — Out of Sync (0=healthy, 1=stale)",
           "gridPos": {
             "h": 8,
             "w": 12,
@@ -405,11 +418,11 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#009E73",
                     "value": null
                   },
                   {
-                    "color": "red",
+                    "color": "#D55E00",
                     "value": 1
                   }
                 ]
@@ -419,7 +432,22 @@ data:
                 "cellOptions": {
                   "type": "color-background"
                 }
-              }
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "OK",
+                      "index": 0
+                    },
+                    "1": {
+                      "text": "STALE",
+                      "index": 1
+                    }
+                  }
+                }
+              ]
             },
             "overrides": []
           },
@@ -512,7 +540,7 @@ data:
                     "id": "color",
                     "value": {
                       "mode": "fixed",
-                      "fixedColor": "green"
+                      "fixedColor": "#009E73"
                     }
                   }
                 ]
@@ -527,7 +555,7 @@ data:
                     "id": "color",
                     "value": {
                       "mode": "fixed",
-                      "fixedColor": "red"
+                      "fixedColor": "#D55E00"
                     }
                   }
                 ]
@@ -596,7 +624,7 @@ data:
         {
           "type": "timeseries",
           "title": "Volsync Daily Sync Completions",
-          "description": "increase() of the completion counter per day \u2014 a missing/zero bar means that day's sync didn't complete",
+          "description": "increase() of the completion counter per day — a missing/zero bar means that day's sync didn't complete",
           "gridPos": {
             "h": 8,
             "w": 12,
