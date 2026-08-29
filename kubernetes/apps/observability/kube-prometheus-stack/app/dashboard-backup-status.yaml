@@ -29,6 +29,12 @@
 # read - same trick already used in
 # kubernetes/apps/media/config-backup/app/postgres-backup-cronjobs.yaml for
 # shell variables.
+#
+# The PromQL below matches CronJob/Job names by suffix (`.*-postgres-backup`,
+# `sqlite-snapshot`) rather than enumerating the 6 apps by name, so a new
+# pg_dump CronJob (e.g. from the ongoing CNPG consolidation - see
+# areas/media.md) shows up here automatically as long as it follows the same
+# naming convention, with no dashboard edit required.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -90,7 +96,7 @@ data:
                 "type": "prometheus",
                 "uid": "$${DS_PROMETHEUS}"
               },
-              "expr": "(time() - kube_cronjob_status_last_successful_time{cronjob=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup|sqlite-snapshot\"}) / 3600",
+              "expr": "(time() - kube_cronjob_status_last_successful_time{cronjob=~\".*-postgres-backup|sqlite-snapshot\"}) / 3600",
               "format": "table",
               "instant": true,
               "refId": "A"
@@ -175,7 +181,7 @@ data:
                 "type": "prometheus",
                 "uid": "$${DS_PROMETHEUS}"
               },
-              "expr": "(kube_cronjob_next_schedule_time{cronjob=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup|sqlite-snapshot\"} - time()) / 3600",
+              "expr": "(kube_cronjob_next_schedule_time{cronjob=~\".*-postgres-backup|sqlite-snapshot\"} - time()) / 3600",
               "format": "table",
               "instant": true,
               "refId": "A"
@@ -256,7 +262,7 @@ data:
                 "type": "prometheus",
                 "uid": "$${DS_PROMETHEUS}"
               },
-              "expr": "sum(kube_job_status_active{job_name=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup-.*|sqlite-snapshot-.*|volsync-src-.*\"}) OR on() vector(0)",
+              "expr": "sum(kube_job_status_active{job_name=~\".*-postgres-backup-.*|sqlite-snapshot-.*|volsync-src-.*\"}) OR on() vector(0)",
               "instant": true,
               "refId": "A"
             }
@@ -503,7 +509,7 @@ data:
                 "type": "prometheus",
                 "uid": "$${DS_PROMETHEUS}"
               },
-              "expr": "kube_job_status_succeeded{job_name=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup-.*|sqlite-snapshot-.*\"}",
+              "expr": "kube_job_status_succeeded{job_name=~\".*-postgres-backup-.*|sqlite-snapshot-.*\"}",
               "legendFormat": "{{job_name}} ok",
               "refId": "A"
             },
@@ -512,7 +518,7 @@ data:
                 "type": "prometheus",
                 "uid": "$${DS_PROMETHEUS}"
               },
-              "expr": "kube_job_status_failed{job_name=~\"(seerr|bazarr|prowlarr|radarr|sonarr|authentik)-postgres-backup-.*|sqlite-snapshot-.*\"} * 2",
+              "expr": "kube_job_status_failed{job_name=~\".*-postgres-backup-.*|sqlite-snapshot-.*\"} * 2",
               "legendFormat": "{{job_name}} FAILED",
               "refId": "B"
             }
