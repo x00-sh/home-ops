@@ -59,6 +59,13 @@ spec:
               # = 25`, so idle NAT mappings on the home router were timing out
               # and silently dropping the tunnel within about a minute.
               WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL: "25s"
+              # See sabnzbd/app/helmrelease.yaml for the full explanation:
+              # sustained transfers through gluetun's tunnel collapsed to tens
+              # of B/s (NIC offload miscomputing checksums on encapsulated
+              # WireGuard packets once they get large), while a native
+              # WireGuard client on the same network was fine — a smaller MTU
+              # keeps packets under the size that triggers it.
+              WIREGUARD_MTU: "1280"
               # Gluetun's firewall applies netns-wide to every container in
               # this pod, not just to itself — without this, its default
               # kill-switch also blocks inbound to qBittorrent's own WebUI.

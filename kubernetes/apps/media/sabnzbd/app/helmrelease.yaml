@@ -91,6 +91,19 @@ spec:
               # two different pinned servers identically, which is what
               # pointed at a client-side gap rather than either server.
               WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL: "25s"
+              # Added 2026-08-30: bulk transfers through the tunnel were
+              # collapsing to tens of B/s under sustained load while tiny
+              # requests worked fine, and only through gluetun's containerized
+              # WireGuard interface — a native WireGuard client on the same
+              # network got a clean, stable 75 Mbps, and non-VPN traffic from
+              # this same node was consistently fast too. That signature (fine
+              # small packets, sustained large-packet flows collapse, only
+              # inside the container) matches NIC offload (checksum/segmentation
+              # offload) miscomputing checksums for WireGuard's encapsulated
+              # UDP payload once packets get large — forcing a much smaller
+              # MTU keeps packets below the size that triggers it, without
+              # needing to touch the host NIC driver.
+              WIREGUARD_MTU: "1280"
               FIREWALL_INPUT_PORTS: "8080"
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
               # Disabled 2026-08-30: the pinned ProtonVPN server (see
