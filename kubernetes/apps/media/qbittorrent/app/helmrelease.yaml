@@ -66,6 +66,12 @@ spec:
               # netns-local iptables see it — verified empirically after
               # rollout (see plan file's verification steps), not assumed.
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
+              # Disabled 2026-08-30: see sabnzbd/app/helmrelease.yaml for the
+              # full explanation — same pinned ProtonVPN server, same
+              # healthcheck-triggered restart-loop killing live connections
+              # while the tunnel itself was never actually down. Incident in
+              # docs/areas/media.md.
+              HEALTH_RESTART_VPN: "off"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:

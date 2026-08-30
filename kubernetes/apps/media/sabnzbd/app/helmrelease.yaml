@@ -83,6 +83,21 @@ spec:
               VPN_TYPE: wireguard
               FIREWALL_INPUT_PORTS: "8080"
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
+              # Disabled 2026-08-30: the pinned ProtonVPN server (see
+              # externalsecret.yaml) started failing gluetun's own ICMP/DNS/TLS
+              # healthcheck every few minutes under load, and each failure
+              # tears down and re-establishes the WireGuard tunnel — killing
+              # every in-flight connection (this is what broke SABnzbd's
+              # Newshosting connections). The "ip getter" check after every
+              # one of those restarts succeeded immediately, meaning the
+              # tunnel itself was never actually down — only the healthcheck's
+              # probes were. Gluetun's own kill-switch (iptables default-DROP
+              # in the netns) still blocks all non-tunnel egress even with
+              # auto-restart off, so disabling it trades "automatically
+              # reconnect on a real failure" for "stop repeatedly killing
+              # healthy connections on a false positive" — see
+              # docs/areas/media.md for the incident writeup.
+              HEALTH_RESTART_VPN: "off"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:
