@@ -36,7 +36,11 @@ spec:
                 cpu: 25m
                 memory: 256Mi
               limits:
-                memory: 1Gi
+                # Bumped from 1Gi 2026-08-30: OOMKill crash-loop (92 restarts/46h)
+                # once Sonarr queued the whole Foundation S03 season as 10
+                # concurrent torrents against the NFS-backed media share. See
+                # docs/areas/media.md incident writeup.
+                memory: 2Gi
           gluetun:
             dependsOn: app
             image:
