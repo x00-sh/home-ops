@@ -81,6 +81,16 @@ spec:
             env:
               VPN_SERVICE_PROVIDER: custom
               VPN_TYPE: wireguard
+              # Added 2026-08-30: our ProtonVPN secret only carries the five
+              # raw WireGuard fields (private/public key, address, endpoint),
+              # not ProtonVPN's full exported config — so it never included
+              # their standard `PersistentKeepalive = 25` line. Without it,
+              # WireGuard sends nothing when idle, and the home router's NAT
+              # mapping for the tunnel times out after roughly a minute,
+              # silently dropping inbound replies from then on. This affected
+              # two different pinned servers identically, which is what
+              # pointed at a client-side gap rather than either server.
+              WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL: "25s"
               FIREWALL_INPUT_PORTS: "8080"
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
               # Disabled 2026-08-30: the pinned ProtonVPN server (see
