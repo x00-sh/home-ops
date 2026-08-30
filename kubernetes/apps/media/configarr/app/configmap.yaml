@@ -116,100 +116,108 @@ data:
 
         # Explicit absolute sizes for all 22 qualities — NEVER `type: series`.
         # TRaSH's definitions are quality-first and permit remux, which is
-        # exactly the hole that turned one TNG season into 214 GB. 44 MB/min is
-        # 2.0 GB for a 45-minute episode. minSize values are carried over
+        # exactly the hole that turned one TNG season into 214 GB. 49 MB/min is
+        # 2.5 GB for a 51-minute episode. minSize values are carried over
         # unchanged: they are what makes the 35-44 window exclude remux and
         # 2160p in practice rather than merely discourage it.
+        #
+        # Raised from 42/44 to 47/49 MB/min on 2026-08-30 (owner decision) to
+        # stop rejecting some Foundation S03 NZBs sitting just above the old
+        # 44 cap. Still a ~11% bump, not TRaSH's ~1000 MB/min — checked free
+        # space first (2.4 TB / 79% full, well up from the 825 GB/93% this
+        # cap was originally set against) and confirmed this only affects
+        # searches for episodes not yet at their quality cutoff, not a
+        # library-wide re-grab.
         quality_definition:
           qualities:
           - quality: "Unknown"
             min: 1
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "SDTV"
             min: 2
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBRip-480p"
             min: 2
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBDL-480p"
             min: 2
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "DVD"
             min: 2
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-480p"
             min: 2
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-576p"
             min: 2
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "HDTV-720p"
             min: 3
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "HDTV-1080p"
             min: 4
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Raw-HD"
             min: 4
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBRip-720p"
             min: 3
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBDL-720p"
             min: 3
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-720p"
             min: 4
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBRip-1080p"
             min: 4
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBDL-1080p"
             min: 4
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-1080p"
             min: 4
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-1080p Remux"
             min: 35
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "HDTV-2160p"
             min: 35
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBRip-2160p"
             min: 35
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "WEBDL-2160p"
             min: 35
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-2160p"
             min: 35
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
           - quality: "Bluray-2160p Remux"
             min: 35
-            preferred: 42.0
-            max: 44.0
+            preferred: 47.0
+            max: 49.0
 
         # The structural fix. With upgradeAllowed false and cutoff SDTV, Sonarr
         # treats every episode as finished: it will not search for upgrades and
