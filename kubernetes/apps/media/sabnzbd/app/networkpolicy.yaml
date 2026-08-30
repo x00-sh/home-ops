@@ -23,7 +23,7 @@ spec:
             - port: "53"
               protocol: TCP
     - toCIDR:
-        - "185.159.158.237/32"
+        - "185.111.109.1/32"
       toPorts:
         - ports:
             - port: "51820"
