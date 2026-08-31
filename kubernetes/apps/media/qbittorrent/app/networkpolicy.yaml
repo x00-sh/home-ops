@@ -7,15 +7,24 @@
 # outside the pod's own control entirely, so a bug in gluetun's firewall
 # doesn't undermine it.
 #
-# Hard allowlist: DNS to CoreDNS, WireGuard UDP to the one pinned ProtonVPN
-# server, nothing else. The endpoint IP/port are plaintext here deliberately
-# — they identify a public VPN server, not a credential; the actual secret
+# Hard allowlist: DNS to CoreDNS, WireGuard UDP to known ProtonVPN Denmark
+# servers, nothing else. The endpoint IPs are plaintext here deliberately —
+# they identify public VPN servers, not a credential; the actual secret
 # (the WireGuard private key) lives only in 1Password / the K8s Secret, see
 # externalsecret.yaml.
 #
 # Verified against the live cluster before writing this: pod label is
 # app.kubernetes.io/name=qbittorrent, CoreDNS is k8s-app=kube-dns in
 # kube-system, CiliumNetworkPolicy CRD is installed.
+#
+# Widened 2026-08-31 from one pinned IP to all 9 known Denmark WireGuard
+# servers — see sabnzbd/app/networkpolicy.yaml for the full explanation
+# (same-day switch to native `protonvpn` provider + SERVER_COUNTRIES for
+# automatic failover, owner decision, and how to refresh this list).
+# Gluetun's own iptables kill-switch inside the pod's netns is still the
+# primary enforcement (default-DROP, only the tunnel and DNS allowed) —
+# this restricts which WireGuard endpoint the tunnel may reach, not a
+# general internet-egress allowlist.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -36,7 +45,19 @@ spec:
             - port: "53"
               protocol: TCP
     - toCIDR:
+        # Denmark WireGuard servers, pulled from a live gluetun pod's own
+        # /gluetun/servers.json (NOT the public gluetun-servers repo — see
+        # sabnzbd/app/networkpolicy.yaml for why that distinction mattered
+        # live), 2026-08-31.
+        - "149.50.217.161/32"
+        - "149.88.109.34/32"
         - "185.111.109.1/32"
+        - "185.159.158.237/32"
+        - "193.29.107.98/32"
+        - "193.29.107.162/32"
+        - "62.169.136.238/32"
+        - "62.169.136.239/32"
+        - "62.169.136.37/32"
       toPorts:
         - ports:
             - port: "51820"

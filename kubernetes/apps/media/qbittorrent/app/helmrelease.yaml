@@ -3,8 +3,8 @@
 # Authentik-gated, Flux green cluster-wide. This step adds the gluetun
 # sidecar, which — together with networkpolicy.yaml — is the entire reason
 # this app exists: qBittorrent must never reach the internet except through
-# the ProtonVPN tunnel. See VPN_SERVICE_PROVIDER=custom note below for why
-# that's not the `protonvpn` provider value.
+# the ProtonVPN tunnel. See the VPN_SERVICE_PROVIDER note below — switched
+# from a single pinned server to native ProtonVPN failover on 2026-08-31.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -47,12 +47,29 @@ spec:
               repository: docker.io/qmcgaw/gluetun
               tag: v3.41.3
             env:
-              # `custom`, not `protonvpn`: the `protonvpn` provider value
-              # resolves a server hostname dynamically at connect time,
-              # which defeats the point of pinning one static endpoint IP
-              # for networkpolicy.yaml's allowlist. `custom` takes the
-              # endpoint literally from the env vars below instead.
-              VPN_SERVICE_PROVIDER: custom
+              # See sabnzbd/app/helmrelease.yaml for the full explanation:
+              # switched from `custom` (one pinned endpoint) to native
+              # `protonvpn` on 2026-08-31 for automatic server failover,
+              # owner decision after repeated instability on the single
+              # pinned server. Same account WIREGUARD_PRIVATE_KEY works
+              # regardless of provider mode (account-tied, not
+              # server-tied) — no credential change needed.
+              VPN_SERVICE_PROVIDER: protonvpn
+              # Denmark only — keeps networkpolicy.yaml's allowlist to a
+              # known, enumerable set of real server IPs (9 as of
+              # 2026-08-31, pulled from a live gluetun pod's own
+              # /gluetun/servers.json — see sabnzbd/app/networkpolicy.yaml
+              # for why that source, not the public gluetun-servers repo,
+              # is the one that matters) rather than all of ProtonVPN's
+              # network. See sabnzbd/app/helmrelease.yaml.
+              SERVER_COUNTRIES: "Denmark"
+              # See sabnzbd/app/helmrelease.yaml: native mode rejects an
+              # endpoint IP/port being set at all (hit live there as
+              # CrashLoopBackOff), and the secret still carries these
+              # custom-mode fields via envFrom. Blank pre-emptively.
+              WIREGUARD_ENDPOINT_IP: ""
+              WIREGUARD_ENDPOINT_PORT: ""
+              WIREGUARD_PUBLIC_KEY: ""
               VPN_TYPE: wireguard
               # See sabnzbd/app/helmrelease.yaml for the full explanation:
               # our ProtonVPN secret omits ProtonVPN's usual `PersistentKeepalive
