@@ -128,96 +128,108 @@ data:
         # cap was originally set against) and confirmed this only affects
         # searches for episodes not yet at their quality cutoff, not a
         # library-wide re-grab.
+        #
+        # Max raised again, 49 -> 85 MB/min, on 2026-08-31 (owner decision):
+        # two real usenet releases for Foundation S03E10, both 4.1 GB/51min
+        # (~82 MB/min), sitting just outside the old cutoff with no smaller
+        # alternative available. `preferred` deliberately left at 47 — this
+        # only widens the ceiling, Sonarr still grabs the smallest release
+        # that clears scoring first, and only reaches for something this
+        # large when nothing smaller qualifies. Free space checked first:
+        # 2.43 TB free. Still well short of remux/2160p real-world bitrates
+        # (typically 100-300+ MB/min), so this does not meaningfully open
+        # the door to those even though it's a shared value across all 22
+        # qualities.
         quality_definition:
           qualities:
           - quality: "Unknown"
             min: 1
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "SDTV"
             min: 2
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBRip-480p"
             min: 2
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBDL-480p"
             min: 2
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "DVD"
             min: 2
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-480p"
             min: 2
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-576p"
             min: 2
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "HDTV-720p"
             min: 3
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "HDTV-1080p"
             min: 4
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Raw-HD"
             min: 4
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBRip-720p"
             min: 3
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBDL-720p"
             min: 3
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-720p"
             min: 4
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBRip-1080p"
             min: 4
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBDL-1080p"
             min: 4
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-1080p"
             min: 4
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-1080p Remux"
             min: 35
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "HDTV-2160p"
             min: 35
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBRip-2160p"
             min: 35
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "WEBDL-2160p"
             min: 35
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-2160p"
             min: 35
             preferred: 47.0
-            max: 49.0
+            max: 85.0
           - quality: "Bluray-2160p Remux"
             min: 35
             preferred: 47.0
-            max: 49.0
+            max: 85.0
 
         # The structural fix. With upgradeAllowed false and cutoff SDTV, Sonarr
         # treats every episode as finished: it will not search for upgrades and
