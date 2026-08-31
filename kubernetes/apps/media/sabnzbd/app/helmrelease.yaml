@@ -177,6 +177,27 @@ spec:
                   periodSeconds: 60
                   timeoutSeconds: 10
                   failureThreshold: 10
+            # Added 2026-08-31, same day, after the liveness probe above
+            # fired for real and made things WORSE: Kubernetes shares IP
+            # rules across the whole pod's network namespace, and a
+            # container-only restart (not a full pod delete) is exactly the
+            # "abrupt exit" gluetun's own Kubernetes docs warn leaves stale
+            # `ip rule` entries behind — confirmed live: the restarted
+            # gluetun hit `adding ip rule 101: from all to all table 51820:
+            # file exists` and got stuck in a growing retry backoff (15s,
+            # 30s, 1m...), never actually re-establishing the tunnel, until
+            # a full `kubectl delete pod` cleared the namespace. Gluetun's
+            # own documented fix: a postStart hook that clears any stale
+            # rule before the new process tries to add its own (`|| true`
+            # so a genuinely fresh pod, with no stale rule, doesn't fail).
+            # https://github.com/qdm12/gluetun-wiki/blob/main/setup/advanced/kubernetes.md#adding-ipv6-rule--file-exists
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - "(ip rule del table 51820; ip -6 rule del table 51820) || true"
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]

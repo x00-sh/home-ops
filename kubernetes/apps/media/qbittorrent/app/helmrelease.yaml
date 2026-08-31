@@ -124,6 +124,20 @@ spec:
                   periodSeconds: 60
                   timeoutSeconds: 10
                   failureThreshold: 10
+            # See sabnzbd/app/helmrelease.yaml for the full explanation: the
+            # liveness probe above fired for real on sabnzbd the same day
+            # and got stuck in a retry loop (`ip rule ... file exists`)
+            # because a container-only restart doesn't clear the pod's
+            # shared network namespace the way a full pod delete does.
+            # Applying the same fix here pre-emptively, before qBittorrent's
+            # own liveness probe ever fires for real.
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - "(ip rule del table 51820; ip -6 rule del table 51820) || true"
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
