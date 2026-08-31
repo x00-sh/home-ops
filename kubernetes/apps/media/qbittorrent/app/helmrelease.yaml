@@ -71,7 +71,10 @@ spec:
               # kill-switch also blocks inbound to qBittorrent's own WebUI.
               # Documented by gluetun itself as needed for Kubernetes
               # sidecars specifically.
-              FIREWALL_INPUT_PORTS: "8080"
+              #
+              # 9999 added 2026-08-31 so the liveness probe below can reach
+              # gluetun's own health server through the same kill-switch.
+              FIREWALL_INPUT_PORTS: "8080,9999"
               # So DNS to CoreDNS isn't caught by the same default-deny.
               # This cluster runs Cilium with socketLB/kubeProxyReplacement,
               # which may rewrite the DNS destination before gluetun's
@@ -88,6 +91,31 @@ spec:
             envFrom:
               - secretRef:
                   name: qbittorrent-protonvpn-secret
+            # Added 2026-08-31: see sabnzbd/app/helmrelease.yaml for the full
+            # explanation. HEALTH_RESTART_VPN=off stops gluetun's own
+            # internal tunnel-teardown-and-rebuild, but its health checks
+            # keep running and keep updating its health server at
+            # 127.0.0.1:9999 regardless — this points Kubernetes' own
+            # liveness probe at that endpoint instead, restarting the whole
+            # gluetun container (the action that's actually fixed a dead
+            # tunnel twice now) rather than relying on gluetun's own
+            # internal reconnect. See sabnzbd/app/helmrelease.yaml for why
+            # the 10-minute threshold (periodSeconds 60 x failureThreshold
+            # 10, owner choice) is actually SHORTER than the longest
+            # false-positive blip observed so far — a deliberate tradeoff,
+            # not an oversight.
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 9999
+                  initialDelaySeconds: 30
+                  periodSeconds: 60
+                  timeoutSeconds: 10
+                  failureThreshold: 10
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]

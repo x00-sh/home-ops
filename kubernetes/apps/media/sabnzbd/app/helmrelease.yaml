@@ -104,7 +104,11 @@ spec:
               # MTU keeps packets below the size that triggers it, without
               # needing to touch the host NIC driver.
               WIREGUARD_MTU: "1280"
-              FIREWALL_INPUT_PORTS: "8080"
+              # 9999 added 2026-08-31 alongside the existing 8080 (WebUI) so
+              # the liveness probe below can reach gluetun's own health
+              # server through its kill-switch iptables rules — same reason
+              # 8080 was needed in the first place.
+              FIREWALL_INPUT_PORTS: "8080,9999"
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
               # Disabled 2026-08-30: the pinned ProtonVPN server (see
               # externalsecret.yaml) started failing gluetun's own ICMP/DNS/TLS
@@ -125,6 +129,39 @@ spec:
             envFrom:
               - secretRef:
                   name: sabnzbd-protonvpn-secret
+            # Added 2026-08-31: auto-heal for the real failure mode
+            # HEALTH_RESTART_VPN=off leaves uncovered. Gluetun's own health
+            # checks (the ICMP/DNS/TLS probes above) keep running and keep
+            # updating its health server at 127.0.0.1:9999 even with
+            # auto-restart disabled — only the internal tunnel-teardown
+            # action is what's off. Pointing Kubernetes' own liveness probe
+            # at that endpoint gives a second, independent restart path: one
+            # that restarts the whole gluetun container (proven to actually
+            # fix a dead tunnel, unlike gluetun's internal restart, which
+            # didn't recover from the 2026-08-30 manual-interference case)
+            # rather than gluetun's own less-reliable internal reconnect.
+            #
+            # 10 minutes (periodSeconds 60 x failureThreshold 10, owner
+            # choice) is SHORTER than the longest false-positive blip seen so
+            # far (~11 min, 2026-08-31 14:45-14:56 CEST) — a deliberate
+            # tradeoff of faster auto-recovery from a real outage against a
+            # small chance of an unnecessary container restart during an
+            # unusually long false-positive window. A restart here is cheap
+            # (same-pod netns, app container untouched) so that risk was
+            # judged acceptable; revisit the threshold if unnecessary
+            # restarts start showing up in practice.
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 9999
+                  initialDelaySeconds: 30
+                  periodSeconds: 60
+                  timeoutSeconds: 10
+                  failureThreshold: 10
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
