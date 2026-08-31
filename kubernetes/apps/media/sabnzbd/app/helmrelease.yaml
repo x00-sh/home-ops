@@ -107,6 +107,19 @@ spec:
               # verified directly, not assumed) — see that file for the
               # full list and how to refresh it if this is ever revisited.
               SERVER_COUNTRIES: "Denmark"
+              # `sabnzbd-protonvpn-secret` still carries the custom-mode
+              # fields (public_key, endpoint_ip, endpoint_port) via envFrom
+              # below — harmless to leave in the secret, but gluetun's
+              # native provider mode actively REJECTS an endpoint port/IP
+              # being set at all, rather than silently ignoring it. Hit
+              # live: `ERROR VPN settings: ... Wireguard server selection
+              # settings: endpoint port is set`, CrashLoopBackOff. Explicit
+              # `env:` entries override `envFrom` for the same key in
+              # Kubernetes, so blank these three out here rather than
+              # editing the shared secret/1Password item.
+              WIREGUARD_ENDPOINT_IP: ""
+              WIREGUARD_ENDPOINT_PORT: ""
+              WIREGUARD_PUBLIC_KEY: ""
               VPN_TYPE: wireguard
               # Added 2026-08-30: our ProtonVPN secret only carries the five
               # raw WireGuard fields (private/public key, address, endpoint),
