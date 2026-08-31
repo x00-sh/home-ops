@@ -87,6 +87,14 @@ spec:
               # while the tunnel itself was never actually down. Incident in
               # docs/areas/media.md.
               HEALTH_RESTART_VPN: "off"
+              # See sabnzbd/app/helmrelease.yaml for the full explanation:
+              # gluetun's HEALTH_SERVER_ADDRESS defaults to loopback-only,
+              # which a Kubernetes httpGet probe (arrives via the pod IP)
+              # can never reach — confirmed live via `kubectl exec ...
+              # wget` to both addresses. Without this, the liveness probe
+              # below would fail every single check forever, restarting the
+              # container on a loop instead of only on a real outage.
+              HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:

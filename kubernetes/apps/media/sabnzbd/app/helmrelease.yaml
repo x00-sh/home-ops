@@ -125,6 +125,21 @@ spec:
               # healthy connections on a false positive" — see
               # docs/areas/media.md for the incident writeup.
               HEALTH_RESTART_VPN: "off"
+              # Added 2026-08-31, same day as the probe below: gluetun's
+              # HEALTH_SERVER_ADDRESS defaults to 127.0.0.1:9999 — loopback
+              # only. A Kubernetes httpGet liveness probe connects via the
+              # pod IP, never literally 127.0.0.1, so against the default it
+              # gets "connection refused" on EVERY check, forever, not just
+              # at startup — confirmed live via `kubectl exec ... wget` to
+              # both addresses from inside the gluetun container itself
+              # (loopback succeeded, pod IP refused). Left as default this
+              # would have restarted the container every ~10 minutes
+              # indefinitely — the opposite of the fix's intent. Binding to
+              # all interfaces is safe: this address is only ever reached
+              # from inside the pod's own netns (kubelet's probe, or the app
+              # container), never externally — no Service or Route exposes
+              # port 9999.
+              HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:
