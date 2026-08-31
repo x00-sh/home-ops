@@ -79,7 +79,34 @@ spec:
               repository: docker.io/qmcgaw/gluetun
               tag: v3.41.3
             env:
-              VPN_SERVICE_PROVIDER: custom
+              # Switched from `custom` to native `protonvpn` on 2026-08-31,
+              # trading the single-pinned-server design for automatic
+              # failover — owner decision after repeated instability on the
+              # one pinned server (see docs/areas/media.md's Incidents:
+              # the 2026-08-30 throughput/packet-loss issue and two
+              # 2026-08-31 outages needing manual/auto-heal intervention),
+              # explicitly preferring stability over the tighter security
+              # posture a single pinned IP allowed. Gluetun picks a NEW
+              # random server from the SERVER_COUNTRIES-filtered pool on
+              # every restart (confirmed via gluetun's own documented
+              # behavior) — so a future auto-heal restart lands on a
+              # different server instead of only ever retrying the same
+              # possibly-still-bad one. The account's WIREGUARD_PRIVATE_KEY
+              # (still sourced from the same `sabnzbd-protonvpn-secret`)
+              # works against any ProtonVPN server regardless of provider
+              # mode — confirmed via gluetun-wiki issue #144, a private key
+              # is account-tied, not server-tied — so no credential change
+              # was needed, only the provider mode and this filter.
+              VPN_SERVICE_PROVIDER: protonvpn
+              # Denmark only (not broadened further): keeps the
+              # CiliumNetworkPolicy allowlist in networkpolicy.yaml to a
+              # known, enumerable set of real server IPs pulled from the
+              # public github.com/qdm12/gluetun-servers list, rather than
+              # opening egress to ProtonVPN's entire network. 9 Denmark
+              # WireGuard servers exist as of 2026-08-31 (fetched and
+              # verified directly, not assumed) — see that file for the
+              # full list and how to refresh it if this is ever revisited.
+              SERVER_COUNTRIES: "Denmark"
               VPN_TYPE: wireguard
               # Added 2026-08-30: our ProtonVPN secret only carries the five
               # raw WireGuard fields (private/public key, address, endpoint),

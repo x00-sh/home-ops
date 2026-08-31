@@ -1,8 +1,34 @@
 ---
 # Same shape as kubernetes/apps/media/qbittorrent/app/networkpolicy.yaml,
 # verified there first against the live cluster before being applied here.
-# Hard allowlist: DNS to CoreDNS, WireGuard UDP to the one pinned ProtonVPN
-# server, nothing else.
+#
+# Widened 2026-08-31 from one pinned IP to all 9 known Denmark WireGuard
+# servers, alongside the same-day switch from gluetun's `custom` provider
+# to native `protonvpn` + SERVER_COUNTRIES=Denmark (see helmrelease.yaml) —
+# owner decision, explicitly preferring stability (automatic server
+# failover) over the tighter single-IP allowlist. Still a hard allowlist of
+# known real server IPs, not an open range: pulled directly from the public
+# github.com/qdm12/gluetun-servers list (`pkg/servers/protonvpn.json`),
+# filtered to `"country": "Denmark", "vpn": "wireguard"`. To refresh if
+# ProtonVPN's Denmark fleet changes:
+#
+#   curl -sSL -o /tmp/protonvpn.json \
+#     https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/protonvpn.json
+#   python3 -c "
+#   import json
+#   d = json.load(open('/tmp/protonvpn.json'))
+#   ips = sorted(set(ip for s in d['servers']
+#                     if s.get('country') == 'Denmark' and s.get('vpn') == 'wireguard'
+#                     for ip in s['ips']))
+#   print('\n'.join(ips))
+#   "
+#
+# Note gluetun's own iptables kill-switch inside the pod's netns is the
+# primary enforcement either way (default-DROP, only the tunnel interface
+# and DNS allowed) — this CiliumNetworkPolicy is the second, independent
+# layer restricting which WireGuard endpoint the tunnel itself may reach,
+# not a general internet-egress allowlist. Traffic still cannot leave the
+# pod at all except through the tun interface or to CoreDNS.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -23,7 +49,17 @@ spec:
             - port: "53"
               protocol: TCP
     - toCIDR:
+        # Denmark WireGuard servers, github.com/qdm12/gluetun-servers,
+        # fetched 2026-08-31 — see the comment above to refresh.
+        - "149.50.217.161/32"
+        - "149.88.109.34/32"
         - "185.111.109.1/32"
+        - "185.159.158.237/32"
+        - "193.29.107.98/32"
+        - "193.29.107.162/32"
+        - "62.169.136.238/32"
+        - "62.169.136.239/32"
+        - "79.135.104.93/32"
       toPorts:
         - ports:
             - port: "51820"
