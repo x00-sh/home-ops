@@ -7,16 +7,23 @@
 # to native `protonvpn` + SERVER_COUNTRIES=Denmark (see helmrelease.yaml) —
 # owner decision, explicitly preferring stability (automatic server
 # failover) over the tighter single-IP allowlist. Still a hard allowlist of
-# known real server IPs, not an open range: pulled directly from the public
-# github.com/qdm12/gluetun-servers list (`pkg/servers/protonvpn.json`),
-# filtered to `"country": "Denmark", "vpn": "wireguard"`. To refresh if
-# ProtonVPN's Denmark fleet changes:
+# known real server IPs, not an open range. **Sourced from the live gluetun
+# container's own /gluetun/servers.json, not the public
+# github.com/qdm12/gluetun-servers repo** — the two were found to have
+# already drifted by one IP when this was built: the public repo listed
+# `79.135.104.93`, but the actual running v3.41.3 image's bundled list had
+# `62.169.136.37` instead. Confirmed live and the hard way — gluetun
+# connected to `.37`, Cilium silently dropped every packet since only the
+# public-repo IP was allowlisted at first, and the tunnel looked "up" per
+# gluetun's own logs while nothing could actually reach the internet. To
+# refresh if ProtonVPN's Denmark fleet changes, pull from a live pod, not
+# the public repo:
 #
-#   curl -sSL -o /tmp/protonvpn.json \
-#     https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/protonvpn.json
+#   kubectl cp media/<sabnzbd-or-qbittorrent-pod>:/gluetun/servers.json \
+#     -c gluetun /tmp/servers.json
 #   python3 -c "
 #   import json
-#   d = json.load(open('/tmp/protonvpn.json'))
+#   d = json.load(open('/tmp/servers.json'))['protonvpn']
 #   ips = sorted(set(ip for s in d['servers']
 #                     if s.get('country') == 'Denmark' and s.get('vpn') == 'wireguard'
 #                     for ip in s['ips']))
@@ -49,8 +56,9 @@ spec:
             - port: "53"
               protocol: TCP
     - toCIDR:
-        # Denmark WireGuard servers, github.com/qdm12/gluetun-servers,
-        # fetched 2026-08-31 — see the comment above to refresh.
+        # Denmark WireGuard servers, pulled from a live gluetun pod's own
+        # /gluetun/servers.json, 2026-08-31 — see the comment above to
+        # refresh.
         - "149.50.217.161/32"
         - "149.88.109.34/32"
         - "185.111.109.1/32"
@@ -59,7 +67,7 @@ spec:
         - "193.29.107.162/32"
         - "62.169.136.238/32"
         - "62.169.136.239/32"
-        - "79.135.104.93/32"
+        - "62.169.136.37/32"
       toPorts:
         - ports:
             - port: "51820"
