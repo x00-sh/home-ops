@@ -18,6 +18,20 @@
 # grows while log lines are actually being read and handed to parsers; if
 # it stops moving, Envoy stopped writing logs, the acquisition glob stopped
 # matching, or the agent died in a way that still passes its liveness probe.
+#
+# `source` is crowdsec's own label for the exact container-log file it is
+# tailing, so it embeds the pod name — it's cardinality that only grows,
+# never shrinks, since crowdsec keeps exposing a metric series for a file
+# it once tailed even after that pod is gone (confirmed live 2026-08-31:
+# an unmatched per-source increase()==0 fired 6 stale alerts at once,
+# referencing two prior envoy ReplicaSets' pod names plus the
+# `shutdown-manager` lifecycle-hook container, which legitimately logs
+# almost nothing and isn't part of the traffic path). Matching only
+# `*_envoy-*.log` drops that sidecar; aggregating with a bare max() drops
+# the pod/source labels entirely, so the alert only fires when every
+# source — old dead ones and the live pod alike — is flat, i.e. traffic
+# genuinely stopped, and a future envoy rollout can't spawn a new
+# permanently-stuck alert instance the way per-source matching did.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -27,7 +41,8 @@ spec:
     - name: crowdsec
       rules:
         - alert: CrowdSecNotProcessingLogs
-          expr: increase(cs_parser_hits_total{namespace="security"}[30m]) == 0
+          expr: >-
+            max(increase(cs_parser_hits_total{namespace="security", source=~".*_envoy-.*\.log"}[30m])) == 0
           for: 30m
           labels:
             severity: warning
