@@ -54,6 +54,12 @@ spec:
               # ProtonVPN's network — see that file for the current list and
               # how to pull a fresh one from a live gluetun pod.
               SERVER_COUNTRIES: "Denmark"
+              # Restricts native-mode server selection to ProtonVPN's
+              # port-forwarding-enabled server pool. Regular servers can
+              # filter BitTorrent traffic even while passing normal HTTPS
+              # traffic fine, which shows up as every torrent stalling at
+              # "downloading metadata" regardless of announced seeders.
+              PORT_FORWARD_ONLY: "on"
               # Native mode rejects an endpoint IP/port being set at all,
               # but the shared secret (envFrom below) still carries these
               # custom-mode fields — blank them here so they don't leak
