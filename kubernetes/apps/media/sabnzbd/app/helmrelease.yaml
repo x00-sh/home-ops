@@ -197,12 +197,15 @@ spec:
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
+            # gluetun's own DNS blocklist download/reload can spike well
+            # past a couple hundred Mi — this was OOMKilled repeatedly at
+            # 256Mi.
             resources:
               requests:
                 cpu: 25m
                 memory: 64Mi
               limits:
-                memory: 256Mi
+                memory: 512Mi
     service:
       app:
         controller: sabnzbd
