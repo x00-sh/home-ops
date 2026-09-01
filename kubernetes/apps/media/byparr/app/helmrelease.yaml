@@ -33,6 +33,11 @@ spec:
             env:
               TZ: Europe/Amsterdam
               LOG_LEVEL: info
+            # /health can itself block for the duration of an in-progress
+            # challenge solve, since this runs a single browser instance
+            # per pod — a generous timeout/period/threshold here is what
+            # stops Kubernetes from killing the pod mid-solve on a real,
+            # if slow, request.
             probes:
               liveness:
                 enabled: true
@@ -43,7 +48,7 @@ spec:
                     port: 8191
                   initialDelaySeconds: 30
                   periodSeconds: 30
-                  timeoutSeconds: 10
+                  timeoutSeconds: 30
                   failureThreshold: 5
               readiness:
                 enabled: true
@@ -53,8 +58,8 @@ spec:
                     path: /health
                     port: 8191
                   initialDelaySeconds: 15
-                  periodSeconds: 10
-                  timeoutSeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 30
                   failureThreshold: 5
             resources:
               requests:
