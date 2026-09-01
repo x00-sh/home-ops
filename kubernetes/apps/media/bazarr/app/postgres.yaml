@@ -1,9 +1,8 @@
 ---
-# Part of the Seerr/Bazarr CNPG consolidation pilot (2026-08-28) — see
-# areas/media.md for the full rationale. Dedicated instance, not a shared
-# one: this is a single-node cluster (instances: 1 everywhere, no HA
-# possible regardless), so a shared Postgres would mean every restart takes
-# every consolidated app down together. Same minimal shape as
+# Dedicated instance, not a shared one: this is a single-node cluster
+# (instances: 1 everywhere, no HA possible regardless), so a shared
+# Postgres would mean every restart takes every consolidated app down
+# together. Same minimal shape as
 # authentik-postgres/gatus-postgres/seerr-postgres — CloudNativePG creates a
 # secret named bazarr-postgres-app holding the generated credentials for the
 # `bazarr` user.

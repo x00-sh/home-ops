@@ -101,16 +101,32 @@ infrastructure detail that is not already in the committed files.
 
 ## Comments in config and manifest files
 
-Explain **what** a setting does, not **why** it was chosen or which incident
-led to it. `# Wide band so 2160p WEB isn't hard-rejected on size; kept below
-1080p's cap so that tier's anti-bloat ceiling is untouched` is right.
-`# Raised because Foundation S03 kept failing usenet grabs` is not — decision
-history, dates and incident narratives belong in `../docs/areas/*.md` (see
-the k8s-migration `CLAUDE.md`'s incident-documentation rule), which is where
-that context is actually useful across sessions. This repo is public:
-comments should read as documentation of current behavior, not a diary of
-troubleshooting sessions. Factual status notes (e.g. "prepared, not yet
-applied") are fine — the line is narrative/rationale vs. plain fact.
+Explain **how** something works, not **why** it ended up this way. A comment
+should hold up if a stranger reads it with zero memory of any troubleshooting
+session — it documents the current mechanism, not the path taken to reach it.
+
+Right: `# Kubernetes' liveness probe connects via the pod IP, so gluetun's
+health server must bind 0.0.0.0:9999 — its loopback-only default fails every
+check`. Wrong: `# Added 2026-08-31 after the probe kept restarting the pod;
+confirmed via kubectl exec that the default only listens on loopback`. Same
+underlying fact, but the first is timeless documentation and the second is a
+diary entry — a stranger gains nothing from knowing when it was found or that
+a human confirmed it live.
+
+Drop entirely, don't relocate: dates used as narrative markers ("Added
+2026-08-31", "Bumped from 1Gi 2026-08-30", "Verified live 2026-08-24"),
+"owner decision"/"owner choice"/"owner request" framing, references to a
+specific incident, and anything that only makes sense as the record of a
+troubleshooting session. That history belongs entirely in the k8s-migration
+repo's `docs/areas/*.md` (see its own incident-documentation rule) — this
+repo does not need to point at it either; a stranger reading this repo has no
+access to that history anyway, so a comment that depends on it to make sense
+has failed as documentation here.
+
+This repo is public and meant to be useful as reference/inspiration for
+someone building a similar cluster — every comment should read like the
+codebase is explaining itself to that stranger, not like a maintainer's log
+of decisions made on specific dates.
 
 ## Verification
 

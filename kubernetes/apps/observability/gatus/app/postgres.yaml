@@ -1,7 +1,7 @@
 ---
 # Uptime history. Postgres rather than the chart's in-memory default so the
-# status page still shows a real record after a restart — the 2026-08-13 outage
-# is exactly the history worth keeping.
+# status page still shows a real record across a restart, not just what has
+# happened since the pod last came up.
 #
 # Deliberately NOT added to the nightly pg_dump: uptime history is pleasant to
 # have and worthless to restore, and a second backup CronJob is a real

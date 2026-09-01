@@ -1,11 +1,8 @@
 ---
-# Fourth app in the CNPG consolidation initiative, after Seerr/Bazarr
-# (2026-08-28), Prowlarr (2026-08-29) and Radarr (2026-08-29) — see
-# areas/media.md. Same two-database (main+log) shape, using CNPG's
-# declarative Database CRD for the second one. Sonarr goes last since its
-# SQLite file (100MB) is by far the largest of the four apps migrated so
-# far; the truncate-before-load procedure was validated on Radarr's
-# smaller 10MB file first.
+# Same two-database (main+log) shape as Prowlarr/Radarr, using CNPG's
+# declarative Database CRD for the second one. Sonarr's SQLite file
+# (100MB) is far larger than Radarr's (10MB), so the truncate-before-load
+# procedure is validated on the smaller file first — see radarr/app/postgres.yaml.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:

@@ -1,9 +1,9 @@
 ---
-# Migrated and running as of 2026-08-18, published at homeassistant.x00.sh on
-# the external gateway. Config was seeded from the docker install before this
-# went to replicas: 1 — starting empty would have run the onboarding wizard
-# and overwritten .storage, where all 43 config entries and 1211 entities
-# live.
+# Published at homeassistant.x00.sh on the external gateway. The config
+# volume must already have a populated .storage before this runs at
+# replicas: 1 — starting against an empty volume runs the onboarding
+# wizard and overwrites .storage, where every config entry and entity
+# lives.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -114,11 +114,11 @@ spec:
     route:
       app:
         # External gateway, published at the same hostname it used on docker.
-        # Staged 2026-08-18 and pushed only once the old homeassistant.x00.sh
-        # entry (and its DNS record) is removed from the portal tunnel —
+        # When migrating a hostname like this, remove the old entry (and its
+        # DNS record) from the source tunnel BEFORE pushing this —
         # external-dns runs policy=sync and will not touch a record it does
-        # not already own, so pushing this earlier would leave the hostname
-        # silently still pointing at the dead docker tunnel.
+        # not already own, so pushing this first would leave the hostname
+        # silently still pointing at the dead source.
         hostnames:
           - "homeassistant.${SECRET_DOMAIN}"
         parentRefs:

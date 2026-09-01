@@ -36,10 +36,8 @@ spec:
               PUID: "1000"
               PGID: "1000"
               UMASK: "002"
-              # CNPG Postgres pilot (2026-08-28) — see areas/media.md. Two
-              # databases, same split Sonarr/Radarr use; LOGDB name is
-              # inferred by pattern from the config.xml key PostgresLogDb
-              # and confirmed live once this pod starts.
+              # Two databases, same split Sonarr/Radarr use; LOGDB name is
+              # inferred by pattern from the config.xml key PostgresLogDb.
               PROWLARR__POSTGRES__HOST: prowlarr-postgres-rw
               PROWLARR__POSTGRES__PORT: "5432"
               PROWLARR__POSTGRES__USER: prowlarr

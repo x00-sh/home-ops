@@ -8,14 +8,13 @@
 #   kubectl -n media delete job sabnzbd-server-bootstrap
 #
 # Non-secret dialing parameters (connections, ssl, priority, enable) are
-# owner-chosen and hardcoded here rather than in 1Password — see
-# externalsecret.yaml for the secret fields (host/port/username/password/
-# api_key) this reads. connections: 100, ssl: on — set 2026-08-28.
+# hardcoded here rather than in 1Password — see externalsecret.yaml for the
+# secret fields (host/port/username/password/api_key) this reads.
 #
-# Primary-only, deliberately: the live instance has a second usenet server
-# configured, and the owner chose (2026-08-28) not to make that one
-# reproducible here — after a genuine from-scratch restore, add it back by
-# hand through the UI, same as before this job existed.
+# Primary-only, deliberately: the live instance can have a second usenet
+# server configured that this job does not reproduce — after a genuine
+# from-scratch restore, add it back by hand through the UI, same as before
+# this job existed.
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -3,10 +3,9 @@
 # Radarr once a day. Configarr is idempotent: a run with nothing to change is a
 # no-op, so the schedule is about catching drift rather than applying anything.
 #
-# Dry run was reviewed and removed on 2026-08-17. To put it back, add
-# `DRY_RUN: "true"` to env — worth doing before any change to the config that
-# touches quality definitions or profiles, since the log is the only chance to
-# see what a sync will do before it does it.
+# To run a dry run, add `DRY_RUN: "true"` to env — worth doing before any
+# change to the config that touches quality definitions or profiles, since
+# the log is the only chance to see what a sync will do before it does it.
 apiVersion: batch/v1
 kind: CronJob
 metadata:

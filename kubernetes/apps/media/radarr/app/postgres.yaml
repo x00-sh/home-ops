@@ -1,12 +1,10 @@
 ---
-# Third app in the CNPG consolidation initiative, after Seerr/Bazarr
-# (2026-08-28) and Prowlarr (2026-08-29) — see areas/media.md. Same
-# two-database (main+log) shape as Prowlarr, using CNPG's declarative
-# Database CRD for the second one. Radarr goes before Sonarr: its SQLite
-# file is 10x smaller, so it validates the truncate-before-load migration
-# procedure (needed here because Radarr/Sonarr seed config tables like
-# NamingConfig with real data, unlike Prowlarr's harmless bookkeeping
-# seed rows) at lower stakes first.
+# Same two-database (main+log) shape as Prowlarr, using CNPG's declarative
+# Database CRD for the second one. Radarr goes before Sonarr in this
+# consolidation: its SQLite file is 10x smaller, so it validates the
+# truncate-before-load migration procedure (needed here because
+# Radarr/Sonarr seed config tables like NamingConfig with real data, unlike
+# Prowlarr's harmless bookkeeping seed rows) at lower stakes first.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:

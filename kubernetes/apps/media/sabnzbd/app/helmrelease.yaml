@@ -66,145 +66,104 @@ spec:
                 memory: 256Mi
               limits:
                 memory: 2Gi
-          # Verified against qBittorrent first (2026-08-28) before touching
-          # this live instance: tunnel-up check, the actual kill-switch test
-          # (tunnel deliberately broken, app egress confirmed to fail
-          # completely, not fall back), iptables default-DROP allowlist, and
-          # independent CiliumNetworkPolicy enforcement via cilium-dbg. Same
-          # shape here verbatim. See networkpolicy.yaml and
-          # externalsecret.yaml's sabnzbd-protonvpn entry.
+          # Same shape as qbittorrent's gluetun sidecar — see
+          # networkpolicy.yaml and externalsecret.yaml's sabnzbd-protonvpn
+          # entry.
           gluetun:
             dependsOn: app
             image:
               repository: docker.io/qmcgaw/gluetun
               tag: v3.41.3
             env:
-              # Switched from `custom` to native `protonvpn` on 2026-08-31,
-              # trading the single-pinned-server design for automatic
-              # failover — owner decision after repeated instability on the
-              # one pinned server (see docs/areas/media.md's Incidents:
-              # the 2026-08-30 throughput/packet-loss issue and two
-              # 2026-08-31 outages needing manual/auto-heal intervention),
-              # explicitly preferring stability over the tighter security
-              # posture a single pinned IP allowed. Gluetun picks a NEW
-              # random server from the SERVER_COUNTRIES-filtered pool on
-              # every restart (confirmed via gluetun's own documented
-              # behavior) — so a future auto-heal restart lands on a
-              # different server instead of only ever retrying the same
-              # possibly-still-bad one. The account's WIREGUARD_PRIVATE_KEY
-              # (still sourced from the same `sabnzbd-protonvpn-secret`)
-              # works against any ProtonVPN server regardless of provider
-              # mode — confirmed via gluetun-wiki issue #144, a private key
-              # is account-tied, not server-tied — so no credential change
-              # was needed, only the provider mode and this filter.
+              # Native mode makes gluetun pick a new server from
+              # SERVER_COUNTRIES on every restart, rather than always
+              # retrying one pinned endpoint. The account's
+              # WIREGUARD_PRIVATE_KEY (from `sabnzbd-protonvpn-secret`) is
+              # tied to the account, not a specific server, so it works
+              # unchanged under either provider mode.
               VPN_SERVICE_PROVIDER: protonvpn
-              # Denmark only (not broadened further): keeps the
-              # CiliumNetworkPolicy allowlist in networkpolicy.yaml to a
-              # known, enumerable set of real server IPs pulled from the
-              # public github.com/qdm12/gluetun-servers list, rather than
-              # opening egress to ProtonVPN's entire network. 9 Denmark
-              # WireGuard servers exist as of 2026-08-31 (fetched and
-              # verified directly, not assumed) — see that file for the
-              # full list and how to refresh it if this is ever revisited.
+              # Single country keeps the CiliumNetworkPolicy allowlist in
+              # networkpolicy.yaml a small, enumerable set of real server
+              # IPs, rather than opening egress to ProtonVPN's entire
+              # network — see that file for the current list and how to
+              # refresh it.
               SERVER_COUNTRIES: "Denmark"
               # `sabnzbd-protonvpn-secret` still carries the custom-mode
               # fields (public_key, endpoint_ip, endpoint_port) via envFrom
               # below — harmless to leave in the secret, but gluetun's
-              # native provider mode actively REJECTS an endpoint port/IP
-              # being set at all, rather than silently ignoring it. Hit
-              # live: `ERROR VPN settings: ... Wireguard server selection
-              # settings: endpoint port is set`, CrashLoopBackOff. Explicit
-              # `env:` entries override `envFrom` for the same key in
-              # Kubernetes, so blank these three out here rather than
+              # native provider mode actively rejects an endpoint port/IP
+              # being set at all, rather than silently ignoring it.
+              # Explicit `env:` entries override `envFrom` for the same key
+              # in Kubernetes, so these are blanked here rather than
               # editing the shared secret/1Password item.
               WIREGUARD_ENDPOINT_IP: ""
               WIREGUARD_ENDPOINT_PORT: ""
               WIREGUARD_PUBLIC_KEY: ""
               VPN_TYPE: wireguard
-              # Added 2026-08-30: our ProtonVPN secret only carries the five
-              # raw WireGuard fields (private/public key, address, endpoint),
-              # not ProtonVPN's full exported config — so it never included
+              # The stored ProtonVPN secret carries only the five raw
+              # WireGuard fields (private/public key, address, endpoint),
+              # not ProtonVPN's full exported config — so it never includes
               # their standard `PersistentKeepalive = 25` line. Without it,
-              # WireGuard sends nothing when idle, and the home router's NAT
-              # mapping for the tunnel times out after roughly a minute,
-              # silently dropping inbound replies from then on. This affected
-              # two different pinned servers identically, which is what
-              # pointed at a client-side gap rather than either server.
+              # WireGuard sends nothing when idle, and a home router's NAT
+              # mapping for the tunnel can time out, silently dropping
+              # inbound replies.
               WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL: "25s"
-              # Added 2026-08-30: bulk transfers through the tunnel were
-              # collapsing to tens of B/s under sustained load while tiny
-              # requests worked fine, and only through gluetun's containerized
-              # WireGuard interface — a native WireGuard client on the same
-              # network got a clean, stable 75 Mbps, and non-VPN traffic from
-              # this same node was consistently fast too. That signature (fine
-              # small packets, sustained large-packet flows collapse, only
-              # inside the container) matches NIC offload (checksum/segmentation
-              # offload) miscomputing checksums for WireGuard's encapsulated
-              # UDP payload once packets get large — forcing a much smaller
-              # MTU keeps packets below the size that triggers it, without
-              # needing to touch the host NIC driver.
+              # NIC checksum/segmentation offload can miscompute checksums
+              # for large encapsulated WireGuard packets: small packets are
+              # unaffected, but sustained large-packet transfers collapse
+              # to a crawl, only through the containerized tunnel interface
+              # — a native WireGuard client hitting the same servers is
+              # unaffected. A smaller MTU keeps packets under the size that
+              # triggers it, without needing to touch the host NIC driver.
               WIREGUARD_MTU: "1280"
-              # 9999 added 2026-08-31 alongside the existing 8080 (WebUI) so
-              # the liveness probe below can reach gluetun's own health
-              # server through its kill-switch iptables rules — same reason
-              # 8080 was needed in the first place.
+              # 8080 is the WebUI; 9999 is gluetun's own health endpoint,
+              # which the liveness probe below needs to reach through this
+              # same kill-switch.
               FIREWALL_INPUT_PORTS: "8080,9999"
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
-              # Disabled 2026-08-30: the pinned ProtonVPN server (see
-              # externalsecret.yaml) started failing gluetun's own ICMP/DNS/TLS
-              # healthcheck every few minutes under load, and each failure
-              # tears down and re-establishes the WireGuard tunnel — killing
-              # every in-flight connection (this is what broke SABnzbd's
-              # Newshosting connections). The "ip getter" check after every
-              # one of those restarts succeeded immediately, meaning the
-              # tunnel itself was never actually down — only the healthcheck's
-              # probes were. Gluetun's own kill-switch (iptables default-DROP
-              # in the netns) still blocks all non-tunnel egress even with
-              # auto-restart off, so disabling it trades "automatically
-              # reconnect on a real failure" for "stop repeatedly killing
-              # healthy connections on a false positive" — see
-              # docs/areas/media.md for the incident writeup.
+              # Off: gluetun's own ICMP/DNS/TLS healthcheck can fail
+              # transiently under load without the tunnel itself actually
+              # being down, and each failure normally tears down and
+              # re-establishes the WireGuard tunnel — killing every
+              # in-flight connection on a false positive. Gluetun's own
+              # kill-switch (iptables default-DROP in the netns) still
+              # blocks all non-tunnel egress even with auto-restart off, so
+              # this trades automatic reconnection on a real failure for
+              # not repeatedly killing healthy connections on a false one.
+              # A genuine outage is instead caught by the liveness probe
+              # below.
               HEALTH_RESTART_VPN: "off"
-              # Added 2026-08-31, same day as the probe below: gluetun's
-              # HEALTH_SERVER_ADDRESS defaults to 127.0.0.1:9999 — loopback
-              # only. A Kubernetes httpGet liveness probe connects via the
-              # pod IP, never literally 127.0.0.1, so against the default it
-              # gets "connection refused" on EVERY check, forever, not just
-              # at startup — confirmed live via `kubectl exec ... wget` to
-              # both addresses from inside the gluetun container itself
-              # (loopback succeeded, pod IP refused). Left as default this
-              # would have restarted the container every ~10 minutes
-              # indefinitely — the opposite of the fix's intent. Binding to
-              # all interfaces is safe: this address is only ever reached
-              # from inside the pod's own netns (kubelet's probe, or the app
-              # container), never externally — no Service or Route exposes
-              # port 9999.
+              # gluetun's HEALTH_SERVER_ADDRESS defaults to
+              # 127.0.0.1:9999 — loopback only. A Kubernetes httpGet
+              # liveness probe connects via the pod IP, never literally
+              # 127.0.0.1, so against the default it fails every check,
+              # restarting the container on a permanent loop instead of
+              # only on a real outage. Binding to all interfaces is safe:
+              # this address is only ever reached from inside the pod's own
+              # netns (kubelet's probe, or the app container), never
+              # externally — no Service or Route exposes port 9999.
               HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:
                   name: sabnzbd-protonvpn-secret
-            # Added 2026-08-31: auto-heal for the real failure mode
-            # HEALTH_RESTART_VPN=off leaves uncovered. Gluetun's own health
-            # checks (the ICMP/DNS/TLS probes above) keep running and keep
-            # updating its health server at 127.0.0.1:9999 even with
-            # auto-restart disabled — only the internal tunnel-teardown
-            # action is what's off. Pointing Kubernetes' own liveness probe
-            # at that endpoint gives a second, independent restart path: one
-            # that restarts the whole gluetun container (proven to actually
-            # fix a dead tunnel, unlike gluetun's internal restart, which
-            # didn't recover from the 2026-08-30 manual-interference case)
-            # rather than gluetun's own less-reliable internal reconnect.
+            # HEALTH_RESTART_VPN=off (above) stops gluetun's own internal
+            # tunnel-teardown-and-rebuild, but its health checks (the
+            # ICMP/DNS/TLS probes) keep running and keep updating its
+            # health server at 127.0.0.1:9999 regardless — only the
+            # internal tunnel-teardown action is off. Pointing Kubernetes'
+            # own liveness probe at that endpoint gives a second,
+            # independent restart path: one that restarts the whole
+            # gluetun container, rather than relying on gluetun's own
+            # internal reconnect, which does not always recover a dead
+            # tunnel on its own.
             #
-            # 10 minutes (periodSeconds 60 x failureThreshold 10, owner
-            # choice) is SHORTER than the longest false-positive blip seen so
-            # far (~11 min, 2026-08-31 14:45-14:56 CEST) — a deliberate
-            # tradeoff of faster auto-recovery from a real outage against a
-            # small chance of an unnecessary container restart during an
-            # unusually long false-positive window. A restart here is cheap
-            # (same-pod netns, app container untouched) so that risk was
-            # judged acceptable; revisit the threshold if unnecessary
-            # restarts start showing up in practice.
+            # The 10-minute failure window (periodSeconds 60 x
+            # failureThreshold 10) is a deliberate tradeoff: short enough
+            # that an unusually long false-positive blip can trigger an
+            # unnecessary restart, in exchange for faster recovery from a
+            # real outage. A restart here is cheap — same-pod netns, app
+            # container untouched — so that tradeoff favors speed.
             probes:
               liveness:
                 enabled: true
@@ -217,19 +176,16 @@ spec:
                   periodSeconds: 60
                   timeoutSeconds: 10
                   failureThreshold: 10
-            # Added 2026-08-31, same day, after the liveness probe above
-            # fired for real and made things WORSE: Kubernetes shares IP
-            # rules across the whole pod's network namespace, and a
-            # container-only restart (not a full pod delete) is exactly the
-            # "abrupt exit" gluetun's own Kubernetes docs warn leaves stale
-            # `ip rule` entries behind — confirmed live: the restarted
-            # gluetun hit `adding ip rule 101: from all to all table 51820:
-            # file exists` and got stuck in a growing retry backoff (15s,
-            # 30s, 1m...), never actually re-establishing the tunnel, until
-            # a full `kubectl delete pod` cleared the namespace. Gluetun's
-            # own documented fix: a postStart hook that clears any stale
-            # rule before the new process tries to add its own (`|| true`
-            # so a genuinely fresh pod, with no stale rule, doesn't fail).
+            # Kubernetes shares IP routing rules across a pod's whole
+            # network namespace, so a container-only restart (not a full
+            # pod delete) is exactly the kind of abrupt exit that can leave
+            # a stale WireGuard `ip rule` behind — the new gluetun process
+            # then collides with it (`adding ip rule 101: from all to all
+            # table 51820: file exists`) and gets stuck retrying without
+            # ever re-establishing the tunnel. This postStart hook clears
+            # any stale rule before the new process tries to add its own
+            # (`|| true` so a genuinely fresh pod, with no stale rule,
+            # doesn't fail).
             # https://github.com/qdm12/gluetun-wiki/blob/main/setup/advanced/kubernetes.md#adding-ipv6-rule--file-exists
             lifecycle:
               postStart:

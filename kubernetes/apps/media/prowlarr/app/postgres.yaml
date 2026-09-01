@@ -1,5 +1,4 @@
 ---
-# Second CNPG pilot after Seerr/Bazarr (2026-08-28) — see areas/media.md.
 # Prowlarr needs TWO databases (main + log, same split Sonarr/Radarr use),
 # so unlike the Seerr/Bazarr Clusters this also declares a second database
 # via CNPG's declarative Database CRD (bootstrap.initdb only creates one).

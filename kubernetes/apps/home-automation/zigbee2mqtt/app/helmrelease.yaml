@@ -1,9 +1,8 @@
 ---
-# Migrated and running as of 2026-08-18. The data directory was seeded from
-# the docker install before this went to replicas: 1 — starting empty would
-# have formed a NEW Zigbee network on the coordinator and orphaned all 36
-# devices, the one outcome in this phase that cannot be undone without
-# re-pairing every device by hand.
+# The data directory must already carry the migrated configuration before
+# this runs at replicas: 1 — starting against an empty directory would form
+# a NEW Zigbee network on the coordinator and orphan every paired device,
+# an outcome that cannot be undone without re-pairing each one by hand.
 #
 # The dongle arrives as an allocated device at /dev/zigbee, courtesy of
 # generic-device-plugin. Nothing here names /dev/ttyUSB0, and nothing here has
@@ -47,8 +46,8 @@ spec:
               # /sys that the discovery heuristics expect. Without this, the
               # container fails at startup with "USB adapter discovery error
               # (No valid USB adapter found)" even though the device itself is
-              # present, healthy and correctly permissioned. Found during the
-              # 2026-08-18 cutover. The Sonoff Plus is a CC2652P — Z-Stack 3.x.
+              # present, healthy and correctly permissioned. The Sonoff Plus
+              # is a CC2652P — Z-Stack 3.x.
               ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: zstack
               ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mqtt:1883
             envFrom:

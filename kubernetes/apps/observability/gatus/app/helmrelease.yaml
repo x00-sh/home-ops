@@ -154,7 +154,7 @@ spec:
         # health alerts on purpose: those depend on Prometheus being up, and
         # these do not. The two fail independently, which is the point.
         #
-        # Both public since 2026-08-20 (envoy-external, not envoy-internal) —
+        # Both public (envoy-external, not envoy-internal) —
         # see authentik-forward-auth.md §10. Grafana's own OIDC login answers
         # its `/login` page directly (still < 400); Alertmanager sits behind
         # Authentik forward auth like the media apps above, so an
@@ -265,7 +265,6 @@ spec:
           interval: 1m
           conditions: ["[CONNECTED] == true"]
           alerts: [{ type: ntfy }]
-        # Both went live in the same commit that migrated the apps, 2026-08-18.
         - name: home assistant
           group: home
           url: https://homeassistant.${SECRET_DOMAIN}
@@ -363,9 +362,10 @@ spec:
           alerts: [{ type: ntfy }]
         - name: proxmox nuc
           group: infrastructure
-          # The host running this cluster. When it wedged on 2026-08-13 its web
-          # UI stopped answering while the VM still served from cache, so this
-          # check would have gone red before anything else did.
+          # The host running this cluster. A frozen host's web UI stops
+          # answering even while a guest VM keeps serving from its own
+          # cache, so this check can go red before anything checking the
+          # guest itself would.
           url: "tcp://10.0.0.5:8006"
           interval: 2m
           conditions: ["[CONNECTED] == true"]

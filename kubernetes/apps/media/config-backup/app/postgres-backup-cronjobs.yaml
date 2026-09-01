@@ -5,10 +5,11 @@
 # one CronJob per app, each writing into its own subdirectory of the shared
 # PVC.
 #
-# Image pinned to the actual live Postgres version (checked 2026-08-28/29:
-# ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie on all clusters), not
-# copied from Authentik's own backup.yaml comment — that one already claims
-# 18.6 while the cluster it backs up is actually running 18.4, a drift
+# Image pinned to the actual live Postgres version
+# (ghcr.io/cloudnative-pg/postgresql:18.4-system-trixie on all clusters
+# here) — check this against a running CNPG Cluster's own image rather than
+# copying from another backup.yaml's comment; Authentik's own comment
+# claims 18.6 while the cluster it backs up actually runs 18.4, a drift
 # worth not repeating here.
 #
 # Prowlarr's prowlarr-log, Radarr's radarr-log and Sonarr's sonarr-log

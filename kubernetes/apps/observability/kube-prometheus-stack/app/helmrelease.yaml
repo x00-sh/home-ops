@@ -153,9 +153,9 @@ spec:
           memory: 512Mi
 
     # kube-state-metrics does not expose ANY custom resource labels by
-    # default (confirmed live: kube_persistentvolumeclaim_labels has zero
-    # series in this cluster's Prometheus, for any PVC). That silently
-    # breaks the media PVC's `excluded-from-alerts: "true"` label (see
+    # default — kube_persistentvolumeclaim_labels has zero series for any
+    # PVC otherwise. That silently breaks the media PVC's
+    # `excluded-from-alerts: "true"` label (see
     # media-volume/app/pv.yaml) — the upstream KubePersistentVolumeFillingUp
     # rule's `unless kube_persistentvolumeclaim_labels{label_excluded_from_alerts="true"}`
     # clause has nothing to match against, so it fires unconditionally

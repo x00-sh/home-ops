@@ -1,10 +1,10 @@
 ---
 # Nightly restic backups of the six application config volumes.
 #
-# WHY THESE EXIST: on 2026-08-13 the node's NVMe stopped answering for six
-# hours. Everything else in the cluster was recoverable — manifests from git,
-# Authentik from its pg_dump, media from the NAS — but these six volumes
-# existed nowhere else. The disk came back; next time it might not.
+# These volumes exist nowhere else — not in git, not backed by a database
+# with its own backup, not on the NAS. A single-node cluster has no
+# redundancy to fall back on if the disk holding them fails, so this is
+# their only copy outside the live volume.
 #
 # copyMethod is Direct because neither storage class here supports CSI
 # snapshots, so the mover reads the live volume. That is safe for flat files

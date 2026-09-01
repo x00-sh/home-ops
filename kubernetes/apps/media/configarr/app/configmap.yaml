@@ -115,31 +115,17 @@ data:
         api_key: !secret SONARR_API_KEY
 
         # Explicit absolute sizes for all 22 qualities — NEVER `type: series`.
-        # TRaSH's definitions are quality-first and permit remux, which is
-        # exactly the hole that turned one TNG season into 214 GB. 49 MB/min is
-        # 2.5 GB for a 51-minute episode. minSize values are carried over
-        # unchanged: they are what makes the 35-44 window exclude remux and
-        # 2160p in practice rather than merely discourage it.
+        # TRaSH's definitions are quality-first and permit remux, which can
+        # inflate a season by hundreds of GB. 49 MB/min is 2.5 GB for a
+        # 51-minute episode. minSize is what makes this window actually
+        # exclude remux and 2160p, not just discourage it.
         #
-        # Raised from 42/44 to 47/49 MB/min on 2026-08-30 (owner decision) to
-        # stop rejecting some Foundation S03 NZBs sitting just above the old
-        # 44 cap. Still a ~11% bump, not TRaSH's ~1000 MB/min — checked free
-        # space first (2.4 TB / 79% full, well up from the 825 GB/93% this
-        # cap was originally set against) and confirmed this only affects
-        # searches for episodes not yet at their quality cutoff, not a
-        # library-wide re-grab.
-        #
-        # Max raised again, 49 -> 85 MB/min, on 2026-08-31 (owner decision):
-        # two real usenet releases for Foundation S03E10, both 4.1 GB/51min
-        # (~82 MB/min), sitting just outside the old cutoff with no smaller
-        # alternative available. `preferred` deliberately left at 47 — this
-        # only widens the ceiling, Sonarr still grabs the smallest release
-        # that clears scoring first, and only reaches for something this
-        # large when nothing smaller qualifies. Free space checked first:
-        # 2.43 TB free. Still well short of remux/2160p real-world bitrates
-        # (typically 100-300+ MB/min), so this does not meaningfully open
-        # the door to those even though it's a shared value across all 22
-        # qualities.
+        # `preferred` is the size Sonarr aims for; `max` only widens the
+        # ceiling for when nothing smaller clears — Sonarr still grabs the
+        # smallest release that passes scoring first. Both are shared across
+        # all 22 qualities, but even at this `max` the cap stays well short
+        # of remux/2160p real-world bitrates (typically 100-300+ MB/min), so
+        # it doesn't open the door to those.
         quality_definition:
           qualities:
           - quality: "Unknown"
@@ -214,7 +200,6 @@ data:
             min: 35
             preferred: 47.0
             max: 85.0
-          # PREPARED 2026-09-01, NOT YET APPLIED.
           # 2160p WEB gets its own band, separate from the 47/85 shared by
           # every other quality: preferred 90, max 400 MB/min. This tier is
           # only reachable once it's also added to the "Any" quality
@@ -293,7 +278,6 @@ data:
                   - "WEBRip-480p"
                   - "WEBDL-480p"
               - name: "SDTV"
-              # PREPARED 2026-09-01, NOT YET APPLIED.
               # Ranked dead last, below SDTV: Sonarr only reaches for this
               # tier automatically once nothing at any tier above it clears.
               # `until_quality` above stays "WEB 1080p", so grabbing this
@@ -357,25 +341,24 @@ data:
               - name: "Any"
                 score: 0
 
-    # Radarr: custom formats, plus upgrades enabled at the EXISTING cutoff.
+    # Radarr: custom formats, plus upgrades enabled at the existing cutoff.
     #
     # Still NO quality_definition — the movie library is 4K-first and
     # deliberately uncapped.
     #
-    # The owner enabled upgrades on 2026-08-17, which supersedes the original
-    # "custom formats only" rule. What makes that safe is the cutoff, not the
-    # flag: it stays at Bluray-480p, so the 54 Remux-2160p films and everything
-    # else above 480p already satisfy it and are never re-grabbed. Only 3 films
-    # sit below it, and all three have no file at all.
+    # Upgrades are on, but the cutoff staying at Bluray-480p is what makes
+    # that safe: the 54 Remux-2160p films and everything else above 480p
+    # already satisfy it and are never re-grabbed. Only 3 films sit below it,
+    # and all three have no file at all.
     #
-    # DO NOT raise this cutoff without recomputing the disk cost. At
-    # Bluray-2160p it is roughly +743 GB, and at Remux-2160p roughly +2.4 TB
-    # against ~825 GB free — the latter fills the disk and fails partway.
+    # Raising this cutoff has a real disk cost across the library: roughly
+    # +743 GB at Bluray-2160p, roughly +2.4 TB at Remux-2160p — check free
+    # space before changing it.
     #
-    # cutoffFormatScore is deliberately left at the profile's existing 0 and is
-    # NOT set to TRaSH's 10000. That value is unreachable here (the maximum is
-    # about 2900), so it would mark every one of the 120 films as never
-    # finished and turn this into a whole-library re-grab.
+    # cutoffFormatScore stays at the profile's existing 0, not TRaSH's 10000:
+    # the maximum reachable score here is about 2900, so 10000 would mark
+    # every film as never finished and turn this into a whole-library
+    # re-grab.
     radarr:
       movies:
         base_url: http://radarr.media.svc.cluster.local:7878

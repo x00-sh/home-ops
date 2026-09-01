@@ -1,10 +1,7 @@
 ---
-# Verified standalone (no VPN) 2026-08-28: pod healthy, route reachable,
-# Authentik-gated, Flux green cluster-wide. This step adds the gluetun
-# sidecar, which — together with networkpolicy.yaml — is the entire reason
-# this app exists: qBittorrent must never reach the internet except through
-# the ProtonVPN tunnel. See the VPN_SERVICE_PROVIDER note below — switched
-# from a single pinned server to native ProtonVPN failover on 2026-08-31.
+# The gluetun sidecar, together with networkpolicy.yaml, is the entire
+# reason this app exists as its own deployment: qBittorrent must never reach
+# the internet except through the ProtonVPN tunnel.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -36,10 +33,9 @@ spec:
                 cpu: 25m
                 memory: 256Mi
               limits:
-                # Bumped from 1Gi 2026-08-30: OOMKill crash-loop (92 restarts/46h)
-                # once Sonarr queued the whole Foundation S03 season as 10
-                # concurrent torrents against the NFS-backed media share. See
-                # docs/areas/media.md incident writeup.
+                # Sized for several concurrent torrents against NFS-backed
+                # storage rather than local disk — each held connection's
+                # buffering costs more memory than it would on local disk.
                 memory: 2Gi
           gluetun:
             dependsOn: app
@@ -47,88 +43,79 @@ spec:
               repository: docker.io/qmcgaw/gluetun
               tag: v3.41.3
             env:
-              # See sabnzbd/app/helmrelease.yaml for the full explanation:
-              # switched from `custom` (one pinned endpoint) to native
-              # `protonvpn` on 2026-08-31 for automatic server failover,
-              # owner decision after repeated instability on the single
-              # pinned server. Same account WIREGUARD_PRIVATE_KEY works
-              # regardless of provider mode (account-tied, not
-              # server-tied) — no credential change needed.
+              # Native mode (vs. `custom` with one pinned endpoint) makes
+              # gluetun pick a new server from SERVER_COUNTRIES on every
+              # restart, giving automatic failover. The account's
+              # WIREGUARD_PRIVATE_KEY is tied to the account, not a specific
+              # server, so it works unchanged under either mode.
               VPN_SERVICE_PROVIDER: protonvpn
-              # Denmark only — keeps networkpolicy.yaml's allowlist to a
-              # known, enumerable set of real server IPs (9 as of
-              # 2026-08-31, pulled from a live gluetun pod's own
-              # /gluetun/servers.json — see sabnzbd/app/networkpolicy.yaml
-              # for why that source, not the public gluetun-servers repo,
-              # is the one that matters) rather than all of ProtonVPN's
-              # network. See sabnzbd/app/helmrelease.yaml.
+              # Single country keeps networkpolicy.yaml's egress allowlist a
+              # small, enumerable set of real server IPs rather than all of
+              # ProtonVPN's network — see that file for the current list and
+              # how to pull a fresh one from a live gluetun pod.
               SERVER_COUNTRIES: "Denmark"
-              # See sabnzbd/app/helmrelease.yaml: native mode rejects an
-              # endpoint IP/port being set at all (hit live there as
-              # CrashLoopBackOff), and the secret still carries these
-              # custom-mode fields via envFrom. Blank pre-emptively.
+              # Native mode rejects an endpoint IP/port being set at all,
+              # but the shared secret (envFrom below) still carries these
+              # custom-mode fields — blank them here so they don't leak
+              # through.
               WIREGUARD_ENDPOINT_IP: ""
               WIREGUARD_ENDPOINT_PORT: ""
               WIREGUARD_PUBLIC_KEY: ""
               VPN_TYPE: wireguard
-              # See sabnzbd/app/helmrelease.yaml for the full explanation:
-              # our ProtonVPN secret omits ProtonVPN's usual `PersistentKeepalive
-              # = 25`, so idle NAT mappings on the home router were timing out
-              # and silently dropping the tunnel within about a minute.
+              # The stored WireGuard config carries only the raw key/
+              # address/endpoint fields, not ProtonVPN's usual
+              # `PersistentKeepalive = 25` line — without it, an idle tunnel
+              # sends nothing and a home router's NAT mapping for it can
+              # time out, silently dropping inbound replies.
               WIREGUARD_PERSISTENT_KEEPALIVE_INTERVAL: "25s"
-              # See sabnzbd/app/helmrelease.yaml for the full explanation:
-              # sustained transfers through gluetun's tunnel collapsed to tens
-              # of B/s (NIC offload miscomputing checksums on encapsulated
-              # WireGuard packets once they get large), while a native
-              # WireGuard client on the same network was fine — a smaller MTU
-              # keeps packets under the size that triggers it.
+              # NIC checksum/segmentation offload can miscompute checksums
+              # for large encapsulated WireGuard packets, collapsing
+              # sustained throughput to near zero while small packets stay
+              # fine. A smaller MTU keeps packets under the size that
+              # triggers it.
               WIREGUARD_MTU: "1280"
               # Gluetun's firewall applies netns-wide to every container in
-              # this pod, not just to itself — without this, its default
-              # kill-switch also blocks inbound to qBittorrent's own WebUI.
-              # Documented by gluetun itself as needed for Kubernetes
-              # sidecars specifically.
-              #
-              # 9999 added 2026-08-31 so the liveness probe below can reach
-              # gluetun's own health server through the same kill-switch.
+              # this pod, not just to itself — without both ports
+              # allowlisted here, its default kill-switch also blocks
+              # inbound to qBittorrent's own WebUI (8080) and to gluetun's
+              # own health endpoint the liveness probe below reaches (9999).
               FIREWALL_INPUT_PORTS: "8080,9999"
               # So DNS to CoreDNS isn't caught by the same default-deny.
-              # This cluster runs Cilium with socketLB/kubeProxyReplacement,
-              # which may rewrite the DNS destination before gluetun's
-              # netns-local iptables see it — verified empirically after
-              # rollout (see plan file's verification steps), not assumed.
+              # Cilium's socketLB/kubeProxyReplacement can rewrite the DNS
+              # destination before gluetun's netns-local iptables see it, so
+              # the pod-CIDR-wide allowance is what's actually needed here
+              # rather than CoreDNS's single ClusterIP.
               FIREWALL_OUTBOUND_SUBNETS: "10.42.0.0/16"
-              # Disabled 2026-08-30: see sabnzbd/app/helmrelease.yaml for the
-              # full explanation — same pinned ProtonVPN server, same
-              # healthcheck-triggered restart-loop killing live connections
-              # while the tunnel itself was never actually down. Incident in
-              # docs/areas/media.md.
+              # Off: gluetun's own healthcheck can flag a false positive and
+              # tear down/rebuild the tunnel on its own, killing every
+              # in-flight connection even when the tunnel was never actually
+              # down. Real outages are instead caught by the liveness probe
+              # below, which restarts the whole gluetun container.
               HEALTH_RESTART_VPN: "off"
-              # See sabnzbd/app/helmrelease.yaml for the full explanation:
-              # gluetun's HEALTH_SERVER_ADDRESS defaults to loopback-only,
-              # which a Kubernetes httpGet probe (arrives via the pod IP)
-              # can never reach — confirmed live via `kubectl exec ...
-              # wget` to both addresses. Without this, the liveness probe
-              # below would fail every single check forever, restarting the
-              # container on a loop instead of only on a real outage.
+              # Kubernetes' httpGet probe connects via the pod IP, never
+              # literally loopback, so gluetun's own loopback-only default
+              # would fail every single check and restart the container in
+              # a permanent loop rather than only on a real outage.
               HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:
                   name: qbittorrent-protonvpn-secret
-            # Added 2026-08-31: see sabnzbd/app/helmrelease.yaml for the full
-            # explanation. HEALTH_RESTART_VPN=off stops gluetun's own
-            # internal tunnel-teardown-and-rebuild, but its health checks
-            # keep running and keep updating its health server at
+            # HEALTH_RESTART_VPN=off (above) stops gluetun's own internal
+            # tunnel-teardown-and-rebuild, but its health checks keep
+            # running and keep updating its health server at
             # 127.0.0.1:9999 regardless — this points Kubernetes' own
             # liveness probe at that endpoint instead, restarting the whole
-            # gluetun container (the action that's actually fixed a dead
-            # tunnel twice now) rather than relying on gluetun's own
-            # internal reconnect. See sabnzbd/app/helmrelease.yaml for why
-            # the 10-minute threshold (periodSeconds 60 x failureThreshold
-            # 10, owner choice) is actually SHORTER than the longest
-            # false-positive blip observed so far — a deliberate tradeoff,
-            # not an oversight.
+            # gluetun container on a sustained failure rather than relying
+            # on gluetun's own internal reconnect, which does not always
+            # recover a dead tunnel on its own.
+            #
+            # The 10-minute failure window (periodSeconds 60 x
+            # failureThreshold 10) is short enough that an occasional false
+            # positive triggers an unnecessary restart, trading that against
+            # faster recovery from a real outage — a restart here is cheap,
+            # since it only replaces the gluetun container within the same
+            # pod, and the app container is untouched.
             probes:
               liveness:
                 enabled: true
@@ -141,13 +128,12 @@ spec:
                   periodSeconds: 60
                   timeoutSeconds: 10
                   failureThreshold: 10
-            # See sabnzbd/app/helmrelease.yaml for the full explanation: the
-            # liveness probe above fired for real on sabnzbd the same day
-            # and got stuck in a retry loop (`ip rule ... file exists`)
-            # because a container-only restart doesn't clear the pod's
-            # shared network namespace the way a full pod delete does.
-            # Applying the same fix here pre-emptively, before qBittorrent's
-            # own liveness probe ever fires for real.
+            # Kubernetes shares IP routing rules across a pod's whole
+            # network namespace, so a container-only restart (not a full
+            # pod replace) can leave a stale WireGuard `ip rule` behind that
+            # collides with the new process's own attempt to add it — this
+            # clears any stale rule first so the restart above can actually
+            # re-establish the tunnel instead of looping on `file exists`.
             lifecycle:
               postStart:
                 exec:

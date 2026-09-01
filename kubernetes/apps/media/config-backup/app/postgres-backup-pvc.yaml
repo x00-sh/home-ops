@@ -1,11 +1,9 @@
 ---
-# Consolidated backup destination for the Seerr/Bazarr CNPG pilot
-# (2026-08-28) — one shared PVC, one subdirectory per app, same pattern as
+# One shared PVC, one subdirectory per app, same pattern as
 # media-config-restic above but for pg_dump output instead of restic
-# repositories. This is the actual "consolidated backup" deliverable from
-# that pilot: one place to look for both apps' database backups, without
-# requiring a shared Postgres instance (see areas/media.md for why those are
-# kept separate).
+# repositories — one place to look for every app's database backups,
+# without requiring a shared Postgres instance (see areas/media.md for why
+# those are kept separate).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

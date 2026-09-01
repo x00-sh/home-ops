@@ -1,23 +1,13 @@
 ---
-# Same shape as kubernetes/apps/media/qbittorrent/app/networkpolicy.yaml,
-# verified there first against the live cluster before being applied here.
+# Same shape as kubernetes/apps/media/qbittorrent/app/networkpolicy.yaml.
 #
-# Widened 2026-08-31 from one pinned IP to all 9 known Denmark WireGuard
-# servers, alongside the same-day switch from gluetun's `custom` provider
-# to native `protonvpn` + SERVER_COUNTRIES=Denmark (see helmrelease.yaml) —
-# owner decision, explicitly preferring stability (automatic server
-# failover) over the tighter single-IP allowlist. Still a hard allowlist of
-# known real server IPs, not an open range. **Sourced from the live gluetun
-# container's own /gluetun/servers.json, not the public
-# github.com/qdm12/gluetun-servers repo** — the two were found to have
-# already drifted by one IP when this was built: the public repo listed
-# `79.135.104.93`, but the actual running v3.41.3 image's bundled list had
-# `62.169.136.37` instead. Confirmed live and the hard way — gluetun
-# connected to `.37`, Cilium silently dropped every packet since only the
-# public-repo IP was allowlisted at first, and the tunnel looked "up" per
-# gluetun's own logs while nothing could actually reach the internet. To
-# refresh if ProtonVPN's Denmark fleet changes, pull from a live pod, not
-# the public repo:
+# Hard allowlist of known real server IPs, not an open range. Sourced from
+# a live gluetun container's own /gluetun/servers.json, not the public
+# github.com/qdm12/gluetun-servers repo — the two can drift, and Cilium
+# enforcing against a stale IP silently drops all traffic to a server
+# gluetun has actually connected to, while gluetun's own logs still report
+# the tunnel as up. To refresh if ProtonVPN's Denmark fleet changes, pull
+# from a live pod, not the public repo:
 #
 #   kubectl cp media/<sabnzbd-or-qbittorrent-pod>:/gluetun/servers.json \
 #     -c gluetun /tmp/servers.json
@@ -56,9 +46,8 @@ spec:
             - port: "53"
               protocol: TCP
     - toCIDR:
-        # Denmark WireGuard servers, pulled from a live gluetun pod's own
-        # /gluetun/servers.json, 2026-08-31 — see the comment above to
-        # refresh.
+        # Denmark WireGuard servers — see the comment above to refresh from
+        # a live pod.
         - "149.50.217.161/32"
         - "149.88.109.34/32"
         - "185.111.109.1/32"

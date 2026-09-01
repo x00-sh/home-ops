@@ -9,22 +9,19 @@
 # Deliberately DETECTION-ONLY. CrowdSec's Envoy remediation component (the
 # bouncer that would actually block a flagged IP at the gateway via an
 # ext_authz SecurityPolicy, same mechanism as Authentik's forward auth) is a
-# young, single-maintainer, explicitly "not tested in production" project as
-# of 2026-08. That's an acceptable risk for read-only detection feeding an
+# young, single-maintainer project, explicitly documented as not tested in
+# production. That's an acceptable risk for read-only detection feeding an
 # alert, not for something sitting in the live traffic path of every public
-# app. Revisit attaching it once this has run for a while with a real signal
-# to judge false-positive rate against — same reasoning as CPUThrottlingHigh
-# being tuned by observation rather than guessed up front.
+# app.
 #
 # No CAPI *enrollment* (no ENROLL_KEY, no link to a CrowdSec Console
 # account) — that's a separate thing from the free community blocklist
-# pull, which LAPI does by default and this cluster deliberately keeps
-# (confirmed live 2026-08-24: DISABLE_ONLINE_API is intentionally unset on
-# lapi.env, unlike agent.env where it's "true" — the agent has no business
-# reaching CAPI itself, but LAPI pulling the shared blocklist is wanted).
-# Do NOT add DISABLE_ONLINE_API to lapi.env to "fix" this — it would
-# silently drop ~21k CAPI-origin decisions the OPNsense firewall bouncer
-# is enforcing. See areas/security.md's Decisions and Incidents.
+# pull, which LAPI does by default and this cluster keeps: DISABLE_ONLINE_API
+# is intentionally unset on lapi.env, unlike agent.env where it's "true" —
+# the agent has no business reaching CAPI itself, but LAPI pulling the
+# shared blocklist is wanted. Do NOT add DISABLE_ONLINE_API to lapi.env: it
+# would silently drop every CAPI-origin decision the OPNsense firewall
+# bouncer is enforcing. See areas/security.md's Decisions and Incidents.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -39,18 +36,17 @@ spec:
         name: crowdsecurity
   interval: 1h
   # The chart's own root-CA Certificate template (templates/tls/ca-certificate.yaml)
-  # hardcodes no duration/renewBefore and exposes no values field for either —
-  # confirmed by reading the chart source at this pinned version. Left alone,
-  # crowdsec-ca inherits cert-manager's own default (~90 days, renews ~30 days
-  # before expiry), and OPNsense's ca_cert_path is a static exported copy of
+  # hardcodes no duration/renewBefore and exposes no values field for either,
+  # at this pinned chart version. Left alone, crowdsec-ca inherits
+  # cert-manager's own default (~90 days, renews ~30 days before expiry),
+  # and OPNsense's ca_cert_path is a static exported copy of
   # crowdsec-lapi-tls's ca.crt that goes stale silently the moment that
   # rotation happens — see docs/open-items.md and the PrometheusRule below.
   # A long-lived root is standard PKI practice regardless (only the leaf certs
   # — agent/bouncer/lapi, already on their own 2160h/720h cycle — need to
   # rotate often); this just makes that rotation rare instead of quarterly.
-  # No postRenderers precedent existed anywhere else in this repo before this;
-  # it's the correct Flux mechanism for patching Helm-rendered output the
-  # chart itself gives no values hook for, not a workaround.
+  # postRenderers is the correct Flux mechanism for patching Helm-rendered
+  # output a chart gives no values hook for.
   postRenderers:
     - kustomize:
         patches:
@@ -75,8 +71,7 @@ spec:
     # record persists across that, so every restart re-registers the same
     # name against a record that's still there, and the agent crash-loops
     # on a 403 "user already exist" until someone runs `cscli machines
-    # delete` by hand — hit for real on 2026-08-24 after a node power
-    # cycle.
+    # delete` by hand.
     #
     # With tls.enabled, the chart switches the agent's init container to a
     # plain `wait-for-lapi` (no cscli register call at all — see
@@ -96,25 +91,25 @@ spec:
         # emit a `secretTemplate:` key, only its children (annotations/
         # labels) are conditional — with both left empty that key renders
         # as a literal YAML null, which cert-manager's CRD (a structural
-        # schema requiring `object`, not nullable) rejects outright, red
-        # Flux reconcile confirmed live on this cluster. Any non-empty
-        # child avoids the empty block; this label is otherwise inert.
+        # schema requiring `object`, not nullable) rejects outright. Any
+        # non-empty child avoids the empty block; this label is otherwise
+        # inert.
         secretTemplate:
           labels:
             app.kubernetes.io/managed-by: crowdsec-helm
     # Real "CrowdSec detected something" alerts. No Prometheus metric
-    # reflects a new alert/decision in this chart version (confirmed by
-    # scraping /metrics live — see prometheusrule.yaml's comment), so this
-    # uses CrowdSec's own notification-http plugin instead, posting straight
-    # to Alertmanager's v2 API — the same pattern falcosidekick uses for
-    # Falco, reusing the existing Alertmanager -> ntfy path rather than a new
-    # secret or a new notification mechanism. Verified with `cscli
-    # notifications test http_default` against the running LAPI before
-    # trusting the template — its synthetic test alert has a real non-nil
-    # Source (scope "Ip", value "10.10.10.10") and CreatedAt already in
-    # RFC3339, both confirmed from CrowdSec's own cscli source
-    # (cmd/crowdsec-cli/clinotifications/notifications.go), so the template
-    # below is exercised the same way a real alert would be.
+    # reflects a new alert/decision in this chart version — see
+    # prometheusrule.yaml's comment — so this uses CrowdSec's own
+    # notification-http plugin instead, posting straight to Alertmanager's
+    # v2 API — the same pattern falcosidekick uses for Falco, reusing the
+    # existing Alertmanager -> ntfy path rather than a new secret or a new
+    # notification mechanism. `cscli notifications test http_default`
+    # against the running LAPI is how to sanity-check the template: its
+    # synthetic test alert has a real non-nil Source (scope "Ip", value
+    # "10.10.10.10") and CreatedAt already in RFC3339 — both come from
+    # CrowdSec's own cscli source (cmd/crowdsec-cli/clinotifications/
+    # notifications.go), so the template below is exercised the same way a
+    # real alert would be.
     config:
       notifications:
         http.yaml: |
@@ -138,8 +133,8 @@ spec:
           # them) because they're plain, non-pointer strings on models.Source
           # (pkg/models/source.go) and Source itself is a required,
           # schema-validated field on Alert, so it's never nil by the time a
-          # notification fires — confirmed against the pinned crowdsec
-          # v1.7.8 source, matching this HelmRelease's own LAPI image tag.
+          # notification fires (per the pinned crowdsec v1.7.8 source,
+          # matching this HelmRelease's own LAPI image tag).
           format: |
             [
             {{range $i, $a := .}}{{if $i}},{{end}}{
@@ -174,9 +169,9 @@ spec:
         on_success: break
     # Controls how the agent's k8s log source strips the container runtime's
     # own log-line wrapper before handing lines to parsers — the chart
-    # defaults this to "docker", which is wrong here (containerd, confirmed
-    # via `kubectl get nodes -o wide`) and would silently corrupt every line
-    # rather than error. Log reading itself is a hostPath mount of the
+    # defaults this to "docker", which is wrong for a containerd node and
+    # would silently corrupt every line rather than error. Log reading
+    # itself is a hostPath mount of the
     # node's /var/log (agent.hostVarLog, chart default true) — the same
     # mechanism Alloy already uses, not a Kubernetes API log stream, so no
     # extra RBAC is needed to read Envoy's logs from the network namespace.
@@ -207,9 +202,8 @@ spec:
         # yanis-kouidri/envoy-logs is a community parser (not yet merged
         # into crowdsecurity/hub, tracked via a fork branch the hub index
         # still resolves) built specifically for Envoy Gateway's default
-        # JSON access log format — verified field-for-field against a real
-        # captured log line from this cluster before committing to it. It
-        # pulls in crowdsecurity/base-http-scenarios, so the actual
+        # JSON access log format. It pulls in
+        # crowdsecurity/base-http-scenarios, so the actual
         # detection rules (http-probing, http-sqli-probing,
         # http-path-traversal-probing, http-cve-probing, etc.) are the
         # mainstream official ones, not community-authored.
@@ -220,16 +214,16 @@ spec:
         podMonitor:
           enabled: true
     lapi:
-      # Second chart gap found live: templates/tls/{agent,bouncer}-certificate.yaml
+      # Second chart gap: templates/tls/{agent,bouncer}-certificate.yaml
       # issue client certs with organizationalUnits agent-ou/bouncer-ou, but
-      # nothing in this chart ever sets AGENTS_ALLOWED_OU/BOUNCERS_ALLOWED_OU
-      # (grepped the full chart source — zero references). LAPI's server-side
+      # nothing in the chart ever sets AGENTS_ALLOWED_OU/BOUNCERS_ALLOWED_OU
+      # (zero references anywhere in the chart source). LAPI's server-side
       # OU allowlist defaults to empty, so every client cert is rejected
       # outright: "client certificate OU [agent-ou] doesn't match expected OU
-      # []", confirmed live on this cluster (the agent's own login attempt to
-      # LAPI failing). docker_start.sh does apply these unconditionally on
-      # every boot (not gated behind the chart's own "first run" checks), so
-      # setting them here is enough — no PVC reset needed.
+      # []" — the agent's own login attempt to LAPI fails until this is set.
+      # docker_start.sh applies these unconditionally on every boot (not
+      # gated behind the chart's own "first run" checks), so setting them
+      # here is enough — no PVC reset needed.
       env:
         - name: AGENTS_ALLOWED_OU
           value: agent-ou
@@ -253,8 +247,8 @@ spec:
         enabled: true
         podMonitor:
           enabled: true
-      # Confirmed upstream bug, still open: crowdsecurity/helm-charts#331.
-      # LAPI ships 4 default postoverflows baked into the image config
+      # Upstream bug, still open: crowdsecurity/helm-charts#331. LAPI ships
+      # 4 default postoverflows baked into the image config
       # (cdn-whitelist, google-special-crawlers-whitelist,
       # seo-bots-whitelist, rdns) whose *data* files (Cloudflare ranges,
       # Google/SEO crawler IPs, GeoLite2 DBs) are never fetched — LAPI's
@@ -262,20 +256,17 @@ spec:
       # stripped out (see its own header comment), so nothing ever
       # populates them, even though /var/lib/crowdsec/data (the
       # `persistentVolume.data` PVC above) genuinely does persist across
-      # restarts here — confirmed by checking `mount` and the PVC list, so
-      # this isn't the "no PV at all" variant of the bug some other reports
-      # describe. The community-verified one-shot fix is `cscli hub
-      # upgrade` (confirmed live in this cluster: it fetched all 9 missing
-      # files, including both GeoLite2 DBs — no MaxMind account needed,
-      # CrowdSec mirrors them). `cscli` itself can't run before the main
-      # container's own entrypoint has generated /etc/crowdsec/config.yaml
-      # (credentials, DB connection etc.), which an initContainer starting
-      # from the same image doesn't have yet — so this fetches the same
-      # files directly instead, bypassing cscli/config entirely. `wget -nc`
-      # is a real no-op (verified: mtime unchanged) once files exist on the
-      # persistent volume, so this is a fast skip on every normal restart,
-      # not a repeated download — it only does real work again after a
-      # from-scratch PVC (e.g. disaster recovery).
+      # restarts. The community-verified one-shot fix is `cscli hub
+      # upgrade`, which fetches the missing files (including both GeoLite2
+      # DBs — no MaxMind account needed, CrowdSec mirrors them). `cscli`
+      # itself can't run before the main container's own entrypoint has
+      # generated /etc/crowdsec/config.yaml (credentials, DB connection
+      # etc.), which an initContainer starting from the same image doesn't
+      # have yet — so this fetches the same files directly instead,
+      # bypassing cscli/config entirely. `wget -nc` is a no-op once files
+      # exist on the persistent volume, so this is a fast skip on every
+      # normal restart, not a repeated download — it only does real work
+      # again after a from-scratch PVC (e.g. disaster recovery).
       extraInitContainers:
         - name: fetch-hub-data
           image: crowdsecurity/crowdsec:v1.7.8

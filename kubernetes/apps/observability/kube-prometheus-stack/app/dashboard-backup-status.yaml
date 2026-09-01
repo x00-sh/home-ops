@@ -1,15 +1,12 @@
 ---
-# Backup status dashboard - owner request (2026-08-29): at-a-glance status,
-# history, and the tiered backup strategy/retention in one place. Reuses
-# metrics already flowing into this cluster's Prometheus rather than a new
-# service: kube-state-metrics for the 6 pg_dump + 2 sqlite-snapshot
-# CronJobs, and Volsync's own volsync_* metrics for the 11 restic
-# ReplicationSources. First custom Grafana dashboard in this repo - every
-# other one provisioned so far is a stock kube-prometheus-stack chart
-# dashboard.
+# Backup status dashboard: at-a-glance status, history, and the tiered
+# backup strategy/retention in one place. Reuses metrics already flowing
+# into this cluster's Prometheus rather than a new service:
+# kube-state-metrics for the pg_dump and sqlite-snapshot CronJobs, and
+# Volsync's own volsync_* metrics for the restic ReplicationSources.
 #
-# Colorblind-safe palette (2026-08-29, owner request): status colors use
-# the Okabe & Ito (2008) palette - https://jfly.uni-koeln.de/color/ - not
+# Colorblind-safe palette: status colors use the Okabe & Ito (2008)
+# palette - https://jfly.uni-koeln.de/color/ - not
 # Grafana's default red/green/yellow. Bluish-green (#009E73) for good,
 # orange (#E69F00) for warning, vermillion (#D55E00) for bad, sky blue
 # (#56B4E9) for informational/in-progress. This specific green/vermillion

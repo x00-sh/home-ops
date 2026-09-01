@@ -27,7 +27,6 @@ spec:
               PUID: "1000"
               PGID: "1000"
               UMASK: "002"
-              # CNPG Postgres migration (2026-08-29) — see areas/media.md.
               # Same two-database shape as Prowlarr.
               RADARR__POSTGRES__HOST: radarr-postgres-rw
               RADARR__POSTGRES__PORT: "5432"
