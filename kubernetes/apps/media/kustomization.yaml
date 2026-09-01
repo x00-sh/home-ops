@@ -23,6 +23,7 @@ resources:
   - ./bazarr/authentik/ks.yaml
   - ./prowlarr/ks.yaml
   - ./prowlarr/authentik/ks.yaml
+  - ./byparr/ks.yaml
   - ./configarr/ks.yaml
   - ./qbittorrent/ks.yaml
   - ./qbittorrent/authentik/ks.yaml

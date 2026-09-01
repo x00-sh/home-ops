@@ -109,6 +109,13 @@ spec:
           interval: 1m
           conditions: ["[STATUS] < 400"]
           alerts: [{ type: ntfy }]
+        - name: byparr
+          group: media
+          # In-cluster only, no hostname: Prowlarr is the only caller.
+          url: http://byparr.media.svc.cluster.local:8191/health
+          interval: 1m
+          conditions: ["[STATUS] == 200"]
+          alerts: [{ type: ntfy }]
 
         # --- published, so these also prove the Cloudflare tunnel end to end:
         # the request leaves the network, resolves publicly and comes back in ---
