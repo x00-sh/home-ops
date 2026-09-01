@@ -214,14 +214,25 @@ data:
             min: 35
             preferred: 47.0
             max: 85.0
+          # PREPARED 2026-09-01, NOT YET APPLIED.
+          # 2160p WEB gets its own band, separate from the 47/85 shared by
+          # every other quality: preferred 90, max 400 MB/min. This tier is
+          # only reachable once it's also added to the "Any" quality
+          # profile's qualities list, ranked last — see that list below —
+          # so the wide max here does not loosen the 1080p-and-under size
+          # cap; it only governs this one last-resort tier. Preferred stays
+          # well under max so Sonarr picks the smaller of two qualifying
+          # 2160p releases when more than one is available. Bluray-2160p and
+          # Bluray-2160p Remux keep the shared 47/85 band unchanged and are
+          # not added to the profile below, so they remain fully disallowed.
           - quality: "WEBRip-2160p"
             min: 35
-            preferred: 47.0
-            max: 85.0
+            preferred: 90.0
+            max: 400.0
           - quality: "WEBDL-2160p"
             min: 35
-            preferred: 47.0
-            max: 85.0
+            preferred: 90.0
+            max: 400.0
           - quality: "Bluray-2160p"
             min: 35
             preferred: 47.0
@@ -282,6 +293,19 @@ data:
                   - "WEBRip-480p"
                   - "WEBDL-480p"
               - name: "SDTV"
+              # PREPARED 2026-09-01, NOT YET APPLIED.
+              # Ranked dead last, below SDTV: Sonarr only reaches for this
+              # tier automatically once nothing at any tier above it clears.
+              # `until_quality` above stays "WEB 1080p", so grabbing this
+              # tier never satisfies the cutoff and never creates upgrade
+              # pressure on an existing 1080p file. Sizing for this tier is
+              # the paired quality_definition entry above (preferred 90 /
+              # max 400 MB/min). Bluray-2160p and Bluray-2160p Remux are not
+              # listed here, so both remain fully disallowed.
+              - name: "WEB 2160p"
+                qualities:
+                  - "WEBRip-2160p"
+                  - "WEBDL-2160p"
 
         custom_formats:
           - trash_ids:
