@@ -99,6 +99,19 @@ non-200 there is the first thing to check.
 Commit messages: conventional style, **no AI attribution**, and no
 infrastructure detail that is not already in the committed files.
 
+## Comments in config and manifest files
+
+Explain **what** a setting does, not **why** it was chosen or which incident
+led to it. `# Wide band so 2160p WEB isn't hard-rejected on size; kept below
+1080p's cap so that tier's anti-bloat ceiling is untouched` is right.
+`# Raised because Foundation S03 kept failing usenet grabs` is not — decision
+history, dates and incident narratives belong in `../docs/areas/*.md` (see
+the k8s-migration `CLAUDE.md`'s incident-documentation rule), which is where
+that context is actually useful across sessions. This repo is public:
+comments should read as documentation of current behavior, not a diary of
+troubleshooting sessions. Factual status notes (e.g. "prepared, not yet
+applied") are fine — the line is narrative/rationale vs. plain fact.
+
 ## Verification
 
 ```sh
