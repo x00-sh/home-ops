@@ -31,12 +31,16 @@ spec:
             resources:
               requests:
                 cpu: 25m
-                memory: 256Mi
+                memory: 512Mi
               limits:
                 # Sized for several concurrent torrents against NFS-backed
                 # storage rather than local disk — each held connection's
                 # buffering costs more memory than it would on local disk.
-                memory: 2Gi
+                # Scales with Session\MaxActiveDownloads/MaxActiveTorrents
+                # in qBittorrent's own settings: more concurrent torrents
+                # against NFS needs more headroom here, and this limit has
+                # already been raised once before for the same reason.
+                memory: 6Gi
           gluetun:
             dependsOn: app
             image:
