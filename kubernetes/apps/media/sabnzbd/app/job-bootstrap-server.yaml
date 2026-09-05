@@ -30,7 +30,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: bootstrap
-          image: docker.io/curlimages/curl:8.21.0
+          image: docker.io/curlimages/curl:8.22.0
           envFrom:
             - secretRef:
                 name: sabnzbd-secret
