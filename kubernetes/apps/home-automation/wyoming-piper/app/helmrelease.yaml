@@ -27,7 +27,7 @@ spec:
               # Plain `2.4.2`, not `2.4.2-omnivoice`: the omnivoice variant is
               # a different, much larger multi-speaker model set that this
               # pipeline does not use.
-              tag: 2.4.2
+              tag: 2.4.3
             args:
               # Voices are named <locale>-<name>-<quality>. `medium` is the
               # quality tier, not the size tier — the alternatives are `low`
