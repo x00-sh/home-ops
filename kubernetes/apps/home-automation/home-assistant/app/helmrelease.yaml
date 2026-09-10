@@ -34,7 +34,7 @@ spec:
               repository: ghcr.io/home-operations/home-assistant
               # Pinned to what docker runs today; the compose file floats
               # :stable. A Home Assistant config migrates forward, not back.
-              tag: 2026.8.3
+              tag: 2026.9.1
             env:
               TZ: Europe/Copenhagen
             securityContext:
