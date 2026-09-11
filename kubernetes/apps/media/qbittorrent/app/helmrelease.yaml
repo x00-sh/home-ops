@@ -154,15 +154,15 @@ spec:
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
-            # gluetun's own DNS blocklist download/reload can spike well
-            # past a couple hundred Mi — the identical config on sabnzbd's
-            # gluetun was OOMKilled repeatedly at 256Mi.
+            # gluetun's own DNS blocklist download/reload spikes memory well
+            # above its idle footprint, so the limit needs headroom above
+            # that spike rather than just above steady-state usage.
             resources:
               requests:
                 cpu: 25m
                 memory: 64Mi
               limits:
-                memory: 512Mi
+                memory: 1Gi
     service:
       app:
         controller: qbittorrent
