@@ -32,7 +32,7 @@ spec:
               # Pinned to what docker runs today. The compose file floats
               # :latest via watchtower, and this database migrates forward but
               # not backward.
-              tag: 2.13.0
+              tag: 2.14.1
             env:
               TZ: Europe/Copenhagen
               # These override the migrated configuration.yaml at runtime, so
