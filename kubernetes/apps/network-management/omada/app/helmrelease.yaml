@@ -50,7 +50,7 @@ spec:
               #
               # MongoDB 8 requires AVX on amd64 — check the node has it
               # (avx, avx2 in /proc/cpuinfo flags) before upgrading.
-              tag: 6.2.14.11
+              tag: 6.3.0.45
             env:
               TZ: Europe/Copenhagen
               # Carried over verbatim from docker-compose. The image starts as
