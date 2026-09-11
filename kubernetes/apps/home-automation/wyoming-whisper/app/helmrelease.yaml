@@ -29,7 +29,7 @@ spec:
           app:
             image:
               repository: docker.io/rhasspy/wyoming-whisper
-              tag: 3.6.0
+              tag: 3.7.0
             args:
               # Sizes go tiny/base/small/medium; -int8 is the quantised
               # variant. small-int8 is ~0.5G resident and roughly 1-3s for a
