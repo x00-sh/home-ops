@@ -24,6 +24,14 @@ spec:
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
       - --gateway-name=envoy-external
+      # external-dns reads only `external-dns.kubernetes.io/` annotations by
+      # default. This cluster uses the `alpha` prefix: the Gateways' `target`
+      # (publish a CNAME to the tunnel, not the Gateway's own address) and
+      # `controller: none` on the https-redirect route. The same `hostname`
+      # annotations are also read by k8s-gateway for split-horizon DNS, so
+      # the prefix is kept rather than migrated. Without this flag, `policy:
+      # sync` replaces every tunnel CNAME with an A record to the Gateway.
+      - --annotation-prefix=external-dns.alpha.kubernetes.io/
     triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "gateway-httproute"]
