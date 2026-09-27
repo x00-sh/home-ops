@@ -132,7 +132,7 @@ of decisions made on specific dates.
 
 ```sh
 mise exec -- flux get ks -A | awk 'NR==1 || $5!="True"'
-mise exec -- flux get hr -A | awk 'NR==1 || $4!="True"'
+mise exec -- flux get hr -A | awk 'NR==1 || $5!="True"'
 mise exec -- kubectl get pods -A | grep -vE 'Running|Completed'
 ```
 
