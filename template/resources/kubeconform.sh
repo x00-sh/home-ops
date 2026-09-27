@@ -8,11 +8,14 @@ KUBERNETES_DIR=$1
 
 kustomize_args=("--load-restrictor=LoadRestrictionsNone")
 kustomize_config="kustomization.yaml"
+# Gateway API kinds carry hostnames such as `app.${SECRET_DOMAIN}` that Flux
+# substitutes only at apply time; the unsubstituted form never matches the
+# schema's hostname pattern, so those kinds are skipped rather than validated.
 kubeconform_args=(
     "-strict"
     "-ignore-missing-schemas"
     "-skip"
-    "Gateway,HTTPRoute,Secret"
+    "Gateway,HTTPRoute,BackendTLSPolicy,Secret"
     "-schema-location"
     "default"
     "-schema-location"
