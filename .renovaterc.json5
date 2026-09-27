@@ -1,7 +1,15 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>home-operations/renovate-presets#8.1.0"],
+  timezone: "Europe/Copenhagen",
   schedule: ["every weekend"],
+  // `schedule` only gates when branches are created; without this, an
+  // automerge lands on whichever run first finds CI green, at any hour.
+  // Pinning merges to a fixed window lets Gatus and Alertmanager mute
+  // exactly that window (their `maintenance` / `renovate-automerge` blocks),
+  // so the restarts an update causes don't page. Keep the three in sync:
+  // this covers 09:00–10:59, the mutes run to 11:30 to cover rollout.
+  automergeSchedule: ["* 9-10 * * 0,6"],
   lockFileMaintenance: {
     enabled: true,
     schedule: ["before 3am on the first day of the month"],

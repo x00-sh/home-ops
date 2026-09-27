@@ -63,6 +63,22 @@ spec:
             - receiver: "null"
               matchers:
                 - alertname = "InfoInhibitor"
+            # Everything else. An explicit catch-all only because the root
+            # route cannot carry mute_time_intervals. The heartbeat route above
+            # is deliberately not muted: pausing it would trip Healthchecks.io.
+            - receiver: ntfy
+              mute_time_intervals: [renovate-automerge]
+        # Matches Renovate's automergeSchedule in .renovaterc.json5 plus half
+        # an hour of rollout, the same window as Gatus's `maintenance` block.
+        # Alerts still firing when it ends are delivered then.
+        time_intervals:
+          - name: renovate-automerge
+            time_intervals:
+              - weekdays: [saturday, sunday]
+                times:
+                  - start_time: "09:00"
+                    end_time: "11:30"
+                location: Europe/Copenhagen
         inhibit_rules:
           # Don't send the warning as well as the critical for the same problem.
           - source_matchers: [severity = "critical"]

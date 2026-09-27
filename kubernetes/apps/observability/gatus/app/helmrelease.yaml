@@ -62,6 +62,18 @@ spec:
             success-threshold: 2
             send-on-resolved: true
 
+      # Renovate automerges only 09:00–10:59 at weekends (automergeSchedule in
+      # .renovaterc.json5); this mutes alerts for that window plus half an hour
+      # of rollout. Checks keep running and the status page stays accurate.
+      # Failures are not counted while muted, so an endpoint still down when
+      # the window closes alerts after the usual failure-threshold.
+      maintenance:
+        enabled: true
+        start: "09:00"
+        duration: 2h30m
+        timezone: Europe/Copenhagen
+        every: [Saturday, Sunday]
+
       endpoints:
         # --- media, LAN only, via the internal gateway. All five now sit
         # behind Authentik forward auth (SecurityPolicy ext_authz), so an
