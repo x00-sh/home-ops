@@ -129,34 +129,54 @@ spec:
           conditions: ["[STATUS] == 200"]
           alerts: [{ type: ntfy }]
 
-        # --- published, so these also prove the Cloudflare tunnel end to end:
-        # the request leaves the network, resolves publicly and comes back in ---
+        # --- published, so these prove the public path end to end: public DNS
+        # records, the Cloudflare edge and the tunnel back in. The LAN resolver
+        # answers these hostnames with the internal gateway (split-horizon),
+        # so each check asks a public resolver instead.
+        #
+        # The certificate condition proves which path was taken. Through the
+        # tunnel the client sees Cloudflare's edge certificate, which Cloudflare
+        # renews with weeks to spare; the gateway's own certificates use Let's
+        # Encrypt's `shortlived` profile and never have more than ~161h left.
+        # 336h sits between the two, so a check that silently resolved
+        # internally fails here instead of passing for the wrong reason.
         - name: jellyfin
           group: published
           url: https://stream.${SECRET_DOMAIN}
           interval: 1m
-          # No certificate check: through the tunnel these present Cloudflare's
-          # edge certificate, not one we issue or renew.
-          conditions: ["[STATUS] < 400"]
+          client: &public-dns
+            dns-resolver: udp://1.1.1.1:53
+          conditions: &via-cloudflare
+            - "[STATUS] < 400"
+            - "[CERTIFICATE_EXPIRATION] > 336h"
           alerts: [{ type: ntfy }]
         - name: seerr
           group: published
           url: https://request.${SECRET_DOMAIN}
           interval: 1m
-          conditions: ["[STATUS] < 400"]
+          client: *public-dns
+          conditions: *via-cloudflare
           alerts: [{ type: ntfy }]
         - name: authentik
           group: published
           url: https://auth.${SECRET_DOMAIN}
           interval: 1m
-          # Split-horizon DNS points this at the Envoy gateway, so unlike the
-          # two above it presents OUR certificate — making this the one place
-          # cert renewal is actually observable.
-          #
-          # The threshold is 24h, not the more usual 10 days: the ClusterIssuer
-          # uses Let's Encrypt's `shortlived` profile, so certificates live 6.7
-          # days total and cert-manager renews with ~53h left. Anything above
-          # ~53h would fire permanently and mean nothing.
+          client: *public-dns
+          conditions: *via-cloudflare
+          alerts: [{ type: ntfy }]
+
+        # --- the gateway's own certificate, reached over split-horizon DNS. The
+        # published checks above only ever see Cloudflare's certificate, so this
+        # is the one place cert-manager renewal is observable end to end.
+        #
+        # The threshold is 24h, not the more usual 10 days: the ClusterIssuer
+        # uses Let's Encrypt's `shortlived` profile, so certificates live 6.7
+        # days total and cert-manager renews with ~53h left. Anything above
+        # ~53h would fire permanently and mean nothing.
+        - name: gateway certificate
+          group: security
+          url: https://auth.${SECRET_DOMAIN}
+          interval: 1m
           conditions:
             - "[STATUS] < 400"
             - "[CERTIFICATE_EXPIRATION] > 24h"
