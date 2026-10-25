@@ -2,9 +2,9 @@
 # Configarr's declarative configuration for Sonarr and Radarr.
 #
 # Read kubernetes/apps/media/configarr/app/cronjob.yaml for how this is
-# consumed, and /opt/k8s-migration/configarr-design.md for why each choice is
-# what it is. The invariants in section 4 of that document are not style
-# preferences — several obvious-looking defaults actively undo deliberate work.
+# consumed. Several obvious-looking defaults here actively undo deliberate
+# work, so treat the values below as load-bearing rather than as style
+# preferences.
 apiVersion: v1
 kind: ConfigMap
 metadata:

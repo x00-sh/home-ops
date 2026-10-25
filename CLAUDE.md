@@ -82,7 +82,7 @@ they always show as modified; that is expected.
 ## Workflow
 
 ```sh
-cd /opt/k8s-migration/home-ops
+cd ~/projects/k8s/home-ops
 # edit cluster.toml or add kubernetes/apps/<ns>/<app>/
 mise exec -- just configure
 # audit (above)
@@ -117,11 +117,13 @@ Drop entirely, don't relocate: dates used as narrative markers ("Added
 2026-08-31", "Bumped from 1Gi 2026-08-30", "Verified live 2026-08-24"),
 "owner decision"/"owner choice"/"owner request" framing, references to a
 specific incident, and anything that only makes sense as the record of a
-troubleshooting session. That history belongs entirely in the k8s-migration
-repo's `docs/areas/*.md` (see its own incident-documentation rule) — this
-repo does not need to point at it either; a stranger reading this repo has no
-access to that history anyway, so a comment that depends on it to make sense
-has failed as documentation here.
+troubleshooting session. That history belongs entirely in the separate
+private `homelab-docs` repo's `docs/areas/*.md` (see its own
+incident-documentation rule) — this repo does not need to point at it either;
+a stranger reading this repo has no access to that history anyway, so a
+comment that depends on it to make sense has failed as documentation here.
+That includes filesystem paths: a comment naming a local working-copy path is
+both unusable to a stranger and liable to go stale, as the 2026-10 move showed.
 
 This repo is public and meant to be useful as reference/inspiration for
 someone building a similar cluster — every comment should read like the

@@ -19,9 +19,9 @@ spec:
         strategy: Recreate
         initContainers:
           # SABnzbd has no env var for its API key, and it rewrites the whole
-          # ini on every shutdown, so a live edit doesn't stick (same trap as
-          # the host_whitelist fix documented in k8s-migration/docs/areas/
-          # media.md). This only ever touches a volume with no sabnzbd.ini
+          # ini on every shutdown, so a live edit doesn't stick — the same trap
+          # that applies to its host_whitelist setting. This only ever touches
+          # a volume with no sabnzbd.ini
           # yet — i.e. a fresh PVC after a from-scratch restore — so the
           # running instance's config is never at risk of being overwritten.
           # Once SABnzbd itself has booted and owns the file, this is a
