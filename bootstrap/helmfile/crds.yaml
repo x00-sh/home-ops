@@ -34,5 +34,8 @@ releases:
     chart: oci://ghcr.io/prometheus-community/charts/prometheus-operator-crds
     # Keep in step with the operator shipped by kube-prometheus-stack: these CRDs
     # are applied out-of-band by `just bootstrap apps-crds`, so nothing updates
-    # them automatically when the chart moves. 31.0.0 == operator v0.93.0.
-    version: 31.0.0
+    # them automatically when the chart moves. 32.0.1 == operator v0.94.1, which
+    # is what kube-prometheus-stack 92.13.1 ships. Apply this before bumping the
+    # chart, never after: the chart's own resources can use fields the older
+    # CRDs don't have.
+    version: 32.0.1
