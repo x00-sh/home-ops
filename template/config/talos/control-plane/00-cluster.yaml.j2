@@ -1,8 +1,14 @@
 cluster:
   allowSchedulingOnControlPlanes: true
   apiServer:
-    admissionControl:
-      $patch: delete
+    # No `admissionControl: {$patch: delete}` here. Talos <=1.13 populated
+    # `cluster.apiServer.admissionControl` with a default PodSecurity plugin
+    # that this patch removed; Talos 1.14 deprecated `.cluster.apiServer` and
+    # moved that config to the separate KubeAdmissionControlConfig document, so
+    # the path no longer exists and the delete fails `just configure` with
+    # "failed to delete path 'cluster.apiServer.admissionControl': lookup
+    # failed". Verified the apiserver still runs with only NodeRestriction
+    # enabled, i.e. nothing re-enables PodSecurity by dropping this.
     certSANs:
       #% for item in cert_sans %#
       - "#{ item }#"

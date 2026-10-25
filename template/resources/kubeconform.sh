@@ -8,14 +8,21 @@ KUBERNETES_DIR=$1
 
 kustomize_args=("--load-restrictor=LoadRestrictionsNone")
 kustomize_config="kustomization.yaml"
-# Gateway API kinds carry hostnames such as `app.${SECRET_DOMAIN}` that Flux
-# substitutes only at apply time; the unsubstituted form never matches the
-# schema's hostname pattern, so those kinds are skipped rather than validated.
+# Kinds carrying hostnames such as `app.${SECRET_DOMAIN}` that Flux substitutes
+# only at apply time; the unsubstituted form never matches the schema's hostname
+# pattern, so those kinds are skipped rather than validated.
+#
+# DNSEndpoint belongs to that same group (`spec.endpoints[].dnsName`). It passed
+# for a long time only because `-ignore-missing-schemas` silently excused it
+# while no externaldns.k8s.io schema was published; once one appeared upstream
+# the kind started being validated for real and failed. Skipping by kind is the
+# behaviour that was always intended here, so this makes it explicit rather than
+# dependent on whether a remote schema happens to exist.
 kubeconform_args=(
     "-strict"
     "-ignore-missing-schemas"
     "-skip"
-    "Gateway,HTTPRoute,BackendTLSPolicy,Secret"
+    "Gateway,HTTPRoute,BackendTLSPolicy,Secret,DNSEndpoint"
     "-schema-location"
     "default"
     "-schema-location"
