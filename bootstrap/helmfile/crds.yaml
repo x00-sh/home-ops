@@ -37,5 +37,6 @@ releases:
     # them automatically when the chart moves. 32.0.1 == operator v0.94.1, which
     # is what kube-prometheus-stack 92.13.1 ships. Apply this before bumping the
     # chart, never after: the chart's own resources can use fields the older
-    # CRDs don't have.
+    # CRDs don't have. Edit it here, not in the generated bootstrap/ copy, or
+    # the next `just configure` reverts it and the CRDs get downgraded.
     version: 32.0.1
