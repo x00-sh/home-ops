@@ -154,15 +154,26 @@ spec:
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
-            # gluetun's own DNS blocklist download/reload spikes memory well
-            # above its idle footprint, so the limit needs headroom above
-            # that spike rather than just above steady-state usage.
+            # gluetun needs far more than its idle footprint: this sidecar
+            # has been measured oscillating between ~60Mi and ~615Mi with a
+            # peak of ~872Mi, which is 85% of a 1Gi limit — too little
+            # headroom to survive the next increase. Keep this in step with
+            # sabnzbd's gluetun, which runs the identical config; whichever
+            # is lower crash-loops the next time its container restarts.
+            #
+            # This is empirical headroom, not a sized budget: the driver of
+            # the demand is unidentified. It is *not* the DNS blocklist,
+            # despite that being the intuitive culprit — the two upstream
+            # lists total ~650KB, far too small for the hundreds of Mi
+            # observed, and the spike occurs even when the download fails
+            # and is skipped. Raise the limit on an OOMKill rather than
+            # trying to compute a correct value.
             resources:
               requests:
                 cpu: 25m
                 memory: 64Mi
               limits:
-                memory: 1Gi
+                memory: 2Gi
     service:
       app:
         controller: qbittorrent
