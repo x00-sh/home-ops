@@ -197,15 +197,26 @@ spec:
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
-            # gluetun's own DNS blocklist download/reload can spike well
-            # past a couple hundred Mi — this was OOMKilled repeatedly at
-            # 256Mi.
+            # gluetun needs several hundred Mi, most of it on a fresh start:
+            # it OOMKills at 256Mi and at 512Mi. qbittorrent's sidecar runs
+            # the identical config and has been measured oscillating between
+            # ~60Mi and ~615Mi, peaking at ~872Mi, so keep the two limits in
+            # step — whichever is lower crash-loops the next time its
+            # container restarts.
+            #
+            # This is empirical headroom, not a sized budget: the driver of
+            # the demand is unidentified. It is *not* the DNS blocklist,
+            # despite that being the intuitive culprit — the two upstream
+            # lists total ~650KB, far too small for the ~450Mi anon-rss
+            # observed, and the spike occurs even when the download fails
+            # and is skipped. Raise the limit on an OOMKill rather than
+            # trying to compute a correct value.
             resources:
               requests:
                 cpu: 25m
                 memory: 64Mi
               limits:
-                memory: 512Mi
+                memory: 1Gi
     service:
       app:
         controller: sabnzbd
