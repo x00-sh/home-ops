@@ -143,6 +143,23 @@ spec:
               # netns (kubelet's probe, or the app container), never
               # externally — no Service or Route exposes port 9999.
               HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
+              # Off: gluetun fetches this blocklist over the network while
+              # starting up, before the tunnel has settled, so the fetch
+              # races the very connectivity it needs and can time out. A
+              # container left in that state serves EAGAIN
+              # ("resource temporarily unavailable") from its own DNS server
+              # on 127.0.0.1:53, which is what the whole pod resolves
+              # against. SABnzbd treats one failed lookup as a dead provider
+              # and drops it for 10 minutes, so a brief startup race becomes
+              # a long stall with the tunnel itself perfectly healthy.
+              #
+              # Nothing here needs the list. It blocks ~6.4k malware/spam
+              # hostnames at the DNS layer only — no firewall effect — and
+              # the only names this pod ever resolves are its usenet
+              # providers. The kill-switch, DNS-leak protection and the
+              # egress allowlist in networkpolicy.yaml are all independent
+              # of it.
+              BLOCK_MALICIOUS: "off"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:
