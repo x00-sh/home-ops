@@ -269,7 +269,7 @@ spec:
       # again after a from-scratch PVC (e.g. disaster recovery).
       extraInitContainers:
         - name: fetch-hub-data
-          image: crowdsecurity/crowdsec:v1.8.1
+          image: crowdsecurity/crowdsec:v1.8.2
           command:
             - sh
             - -c
