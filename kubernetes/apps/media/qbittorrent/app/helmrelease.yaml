@@ -107,6 +107,21 @@ spec:
               # would fail every single check and restart the container in
               # a permanent loop rather than only on a real outage.
               HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
+              # Off: gluetun fetches this blocklist over the network while
+              # starting up, before the tunnel has settled, so the fetch
+              # races the very connectivity it needs and can time out. A
+              # container left in that state serves EAGAIN
+              # ("resource temporarily unavailable") from its own DNS server
+              # on 127.0.0.1:53, which is what the whole pod resolves
+              # against.
+              #
+              # It buys this pod nothing even when it does load: the list
+              # blocks hostnames at the DNS layer only, with no firewall
+              # effect, and peer addresses arrive from trackers and DHT as
+              # raw IPs that are never resolved through gluetun at all. The
+              # kill-switch, DNS-leak protection and the egress allowlist in
+              # networkpolicy.yaml are all independent of it.
+              BLOCK_MALICIOUS: "off"
               TZ: Europe/Amsterdam
             envFrom:
               - secretRef:
