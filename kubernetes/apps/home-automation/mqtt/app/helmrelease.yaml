@@ -34,7 +34,7 @@ spec:
           init-passwd:
             image:
               repository: docker.io/library/eclipse-mosquitto
-              tag: 2.1.2-alpine
+              tag: 2.1.4-alpine
             command:
               - sh
               - -c
@@ -65,7 +65,7 @@ spec:
               # line ONLY as `2.1.x-alpine`. A plain `2.1.2` tag does not
               # exist, and asking for one is an ImagePullBackOff. `latest` and
               # `alpine` are the same digest as this.
-              tag: 2.1.2-alpine
+              tag: 2.1.4-alpine
             env:
               TZ: Europe/Copenhagen
             probes:
